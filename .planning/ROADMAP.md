@@ -1,4 +1,4 @@
-﻿# Roadmap: Airwallex FYI
+# Roadmap: Airwallex FYI
 
 ## Overview
 
@@ -9,9 +9,9 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 **Goal:** Create a runnable Kotlin Spring Boot service with configuration, database schema, and basic admin surface.
 **Mode:** mvp
 
-**Requirements:** OPS-01, OPS-02, STATE-01
+**Requirements**: OPS-01, OPS-02, STATE-01
 
-**Success Criteria:**
+**Success Criteria**:
 1. Spring Boot Kotlin project builds and starts locally.
 2. Environment-backed configuration exists for database, OpenAI, Twilio, WhatsApp recipient, scheduler, dry-run, and admin token values.
 3. Flyway creates the initial tables for posts, summaries, and notification status.
@@ -23,9 +23,9 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 **Goal:** Discover, extract, and dedupe public Airwallex Blog and Newsroom articles without sending notifications.
 **Mode:** mvp
 
-**Requirements:** SRC-01, SRC-02, SRC-03, EXT-01, EXT-02, EXT-03, STATE-02, STATE-03
+**Requirements**: SRC-01, SRC-02, SRC-03, EXT-01, EXT-02, EXT-03, STATE-02, STATE-03
 
-**Success Criteria:**
+**Success Criteria**:
 1. Service fetches `https://www.airwallex.com/global/sitemap-blog.xml` and filters Blog/Newsroom article URLs only.
 2. Service extracts article metadata and body from `__NEXT_DATA__`, with Jsoup fallback for malformed structured data.
 3. Service stores discovered articles and stable content hashes.
@@ -37,9 +37,9 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 **Goal:** Turn newly discovered articles into concise WhatsApp updates.
 **Mode:** mvp
 
-**Requirements:** AI-01, NOTIF-01, NOTIF-02
+**Requirements**: AI-01, NOTIF-01, NOTIF-02
 
-**Success Criteria:**
+**Success Criteria**:
 1. Service calls OpenAI only for articles that need a new summary.
 2. Summary output is parsed as structured JSON with headline, bullets, why-it-matters, tags, and source type.
 3. WhatsApp alert formatting is concise and includes direct source link.
@@ -51,9 +51,9 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 **Goal:** Make the monitor safe to run unattended and easy to verify.
 **Mode:** mvp
 
-**Requirements:** OPS-03, QUAL-01
+**Requirements**: OPS-03, QUAL-01
 
-**Success Criteria:**
+**Success Criteria**:
 1. Service supports scheduled polling and `--run-once` execution.
 2. Tests cover sitemap filtering, extraction, first-run seed, dedupe, dry-run, and new-post notification flow.
 3. README documents local setup, required env vars, Twilio Sandbox setup, OpenAI setup, and run commands.
