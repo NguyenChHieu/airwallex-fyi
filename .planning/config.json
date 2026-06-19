@@ -1,0 +1,104 @@
+﻿{
+  "mode": "yolo",
+  "granularity": "coarse",
+  "model_profile": "balanced",
+  "commit_docs": true,
+  "parallelization": true,
+  "search_gitignored": false,
+  "brave_search": false,
+  "firecrawl": false,
+  "exa_search": false,
+  "resolve_model_ids": false,
+  "context_window": 200000,
+  "phase_naming": "sequential",
+  "project_code": "AWXFYI",
+  "claude_md_path": "./AGENTS.md",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": false,
+    "ai_integration_phase": true,
+    "ui_phase": false,
+    "ui_safety_gate": false,
+    "auto_advance": false,
+    "_auto_chain_active": false,
+    "node_repair": true,
+    "node_repair_budget": 2,
+    "tdd_mode": false,
+    "human_verify_mode": "end-of-phase",
+    "text_mode": false,
+    "research_before_questions": false,
+    "discuss_mode": "discuss",
+    "skip_discuss": false,
+    "max_discuss_passes": 3,
+    "subagent_timeout": 300000,
+    "context_coverage_gate": true,
+    "code_review": true,
+    "code_review_depth": "standard",
+    "code_review_command": null,
+    "pattern_mapper": true,
+    "plan_bounce": false,
+    "plan_bounce_script": null,
+    "plan_bounce_passes": 2,
+    "auto_prune_state": false,
+    "post_planning_gaps": true,
+    "security_enforcement": true,
+    "security_asvs_level": 1,
+    "security_block_on": "high",
+    "plan_review_convergence": false
+  },
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false,
+    "sub_repos": [],
+    "granularity": "coarse"
+  },
+  "git": {
+    "branching_strategy": "none",
+    "create_tag": true,
+    "base_branch": null,
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}",
+    "quick_branch_template": null
+  },
+  "hooks": {
+    "context_warnings": true,
+    "workflow_guard": false
+  },
+  "ship": {
+    "pr_body_sections": [
+      {
+        "heading": "User Stories & Acceptance Criteria",
+        "enabled": true,
+        "source": "REQUIREMENTS.md ## User Stories || REQUIREMENTS.md ## Acceptance Criteria",
+        "fallback": "- Acceptance criteria are covered by the linked requirements and verification evidence."
+      },
+      {
+        "heading": "Risks & Dependencies",
+        "enabled": true,
+        "source": "PLAN.md ## Risks || PLAN.md ## Dependencies",
+        "fallback": "- No known high-risk rollout dependencies."
+      },
+      {
+        "heading": "Success Metrics & Release Criteria",
+        "enabled": true,
+        "source": "REQUIREMENTS.md ## Definition of Done || VERIFICATION.md ## Release Criteria",
+        "fallback": "- Release when automated verification and required manual checks pass."
+      },
+      {
+        "heading": "Stakeholder Review & Approval",
+        "enabled": false,
+        "template": "- Product owner approval pending for {phase_name}."
+      }
+    ]
+  },
+  "agent_skills": {},
+  "graphify": {
+    "auto_update": false
+  },
+  "plan_review": {
+    "source_grounding": true,
+    "source_grounding_authority": "grep"
+  }
+}
