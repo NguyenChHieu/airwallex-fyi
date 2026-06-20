@@ -25,7 +25,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-20)
 
 - Project initialized: 2026-06-20
 - Current phase: 1
-- Current status: Ready to execute Phase 1 after review
+- Current status: Ready to execute Phase 1 after local GSD review
 - Planning mode: vertical MVP
 - GSD config: `.planning/config.json`
 
@@ -33,11 +33,11 @@ See: `.planning/PROJECT.md` (updated 2026-06-20)
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Service Skeleton And Persistence | Planned - 3 plans |
+| 1 | Service Skeleton And Persistence | Planned and locally reviewed - 3 plans |
 | 2 | Airwallex Source Monitoring | Pending |
 | 3 | Summaries And WhatsApp Alerts | Pending |
 | 4 | Scheduling, Verification, And Deployment Readiness | Pending |
 
 ## Next Step
 
-Run `$gsd-review --phase 1 --claude --codex` to review the Phase 1 plans, then `$gsd-execute-phase 1` if review passes.
+Run `$gsd-execute-phase 1` to implement the Phase 1 plans. External Claude/Codex review was not run because approval for external document disclosure was blocked; see `01-REVIEWS.md`.
