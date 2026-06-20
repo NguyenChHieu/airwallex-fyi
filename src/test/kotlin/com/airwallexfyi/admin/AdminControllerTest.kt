@@ -1,12 +1,18 @@
 package com.airwallexfyi.admin
 
+import com.airwallexfyi.monitor.MonitorRunResult
+import com.airwallexfyi.monitor.MonitorRunService
+import com.airwallexfyi.monitor.MonitorRunStatus
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import java.time.Instant
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -24,6 +30,28 @@ class AdminControllerTest @Autowired constructor(
     private val mockMvc: MockMvc,
     private val postRepository: PostRepository,
 ) {
+    @MockitoBean
+    lateinit var monitorRunService: MonitorRunService
+
+    @BeforeEach
+    fun setUp() {
+        postRepository.deleteAll()
+        `when`(monitorRunService.runOnce()).thenReturn(
+            MonitorRunResult(
+                status = MonitorRunStatus.COMPLETED,
+                sitemapFetched = true,
+                discoveredCount = 0,
+                seededCount = 0,
+                newCount = 0,
+                updatedCount = 0,
+                skippedCount = 0,
+                failedCount = 0,
+                externalCallsTriggered = false,
+                message = "Test monitor run completed.",
+            ),
+        )
+    }
+
     @Test
     fun `health endpoint returns safe operational flags`() {
         mockMvc.perform(authorized(get("/admin/health")))
@@ -61,12 +89,12 @@ class AdminControllerTest @Autowired constructor(
     }
 
     @Test
-    fun `run once endpoint returns phase one stub response`() {
+    fun `run once endpoint returns monitor run response`() {
         mockMvc.perform(authorized(post("/admin/run-once")))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.status").value("stubbed"))
+            .andExpect(jsonPath("$.status").value("completed"))
             .andExpect(jsonPath("$.externalCallsTriggered").value(false))
-            .andExpect(jsonPath("$.message").value("Phase 1 run-once stub completed; no Airwallex, OpenAI, or Twilio calls were made."))
+            .andExpect(jsonPath("$.message").value("Test monitor run completed."))
     }
 
     private fun authorized(builder: org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder): org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder =
