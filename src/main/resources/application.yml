@@ -29,6 +29,9 @@ airwallex-fyi:
   scheduler:
     enabled: ${SCHEDULER_ENABLED:false}
     fixed-delay-ms: ${SCHEDULER_FIXED_DELAY:300000}
+  source:
+    sitemap-url: ${AIRWALLEX_SITEMAP_URL:https://www.airwallex.com/global/sitemap-blog.xml}
+    first-run-seed-limit: ${FIRST_RUN_SEED_LIMIT:25}
   dry-run: ${DRY_RUN:true}
   admin:
     token: ${ADMIN_TOKEN:dev-admin-token}

@@ -23,6 +23,8 @@ class AppPropertiesTest {
                 "airwallex-fyi.whatsapp.to=whatsapp:+15550000002",
                 "airwallex-fyi.scheduler.enabled=true",
                 "airwallex-fyi.scheduler.fixed-delay-ms=120000",
+                "airwallex-fyi.source.sitemap-url=https://www.airwallex.com/global/sitemap-blog.xml",
+                "airwallex-fyi.source.first-run-seed-limit=10",
                 "airwallex-fyi.dry-run=false",
                 "airwallex-fyi.admin.token=test-admin-token",
             )
@@ -37,6 +39,8 @@ class AppPropertiesTest {
                 assertThat(properties.whatsapp.to).isEqualTo("whatsapp:+15550000002")
                 assertThat(properties.scheduler.enabled).isTrue()
                 assertThat(properties.scheduler.fixedDelayMs).isEqualTo(120000)
+                assertThat(properties.source.sitemapUrl).isEqualTo("https://www.airwallex.com/global/sitemap-blog.xml")
+                assertThat(properties.source.firstRunSeedLimit).isEqualTo(10)
                 assertThat(properties.dryRun).isFalse()
                 assertThat(properties.admin.token).isEqualTo("test-admin-token")
             }
@@ -51,8 +55,19 @@ class AppPropertiesTest {
             assertThat(properties.scheduler.enabled).isFalse()
             assertThat(properties.openai.apiKey).isBlank()
             assertThat(properties.twilio.authToken).isBlank()
+            assertThat(properties.source.sitemapUrl).isEqualTo("https://www.airwallex.com/global/sitemap-blog.xml")
+            assertThat(properties.source.firstRunSeedLimit).isEqualTo(25)
             assertThat(properties.admin.token).isEqualTo("dev-admin-token")
         }
+    }
+
+    @Test
+    fun `rejects non positive first run seed limit`() {
+        contextRunner
+            .withPropertyValues("airwallex-fyi.source.first-run-seed-limit=0")
+            .run { context ->
+                assertThat(context).hasFailed()
+            }
     }
 
     @Configuration(proxyBeanMethods = false)

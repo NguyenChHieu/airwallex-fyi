@@ -12,6 +12,7 @@ data class AppProperties(
     @field:Valid val twilio: Twilio = Twilio(),
     @field:Valid val whatsapp: WhatsApp = WhatsApp(),
     @field:Valid val scheduler: Scheduler = Scheduler(),
+    @field:Valid val source: Source = Source(),
     @field:Valid val admin: Admin = Admin(),
     val dryRun: Boolean = true,
 ) {
@@ -34,6 +35,12 @@ data class AppProperties(
         val enabled: Boolean = false,
         @field:Min(1000)
         val fixedDelayMs: Long = 300000,
+    )
+
+    data class Source(
+        val sitemapUrl: String = "https://www.airwallex.com/global/sitemap-blog.xml",
+        @field:Min(1)
+        val firstRunSeedLimit: Int = 25,
     )
 
     data class Admin(
