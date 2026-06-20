@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase 1 complete
-last_updated: "2026-06-20T00:56:56.788Z"
+last_updated: "2026-06-20T07:35:47.883Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -11,6 +11,7 @@ progress:
   completed_plans: 3
   percent: 25
 ---
+
 # State: Airwallex FYI
 
 ## Project Reference
