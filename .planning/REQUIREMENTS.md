@@ -13,9 +13,9 @@
 
 ### Article Extraction
 
-- [ ] **EXT-01**: Service can extract title, publication date, description, author when available, source type, and article body from Airwallex `__NEXT_DATA__` payloads.
-- [ ] **EXT-02**: Service can fall back to HTML extraction when structured page data is missing or malformed.
-- [ ] **EXT-03**: Service computes a stable content hash from extracted article content.
+- [x] **EXT-01**: Service can extract title, publication date, description, author when available, source type, and article body from Airwallex `__NEXT_DATA__` payloads.
+- [x] **EXT-02**: Service can fall back to HTML extraction when structured page data is missing or malformed.
+- [x] **EXT-03**: Service computes a stable content hash from extracted article content.
 
 ### State And Dedupe
 
@@ -81,9 +81,9 @@
 | SRC-01 | Phase 2 | Complete |
 | SRC-02 | Phase 2 | Complete |
 | SRC-03 | Phase 2 | Complete |
-| EXT-01 | Phase 2 | Pending |
-| EXT-02 | Phase 2 | Pending |
-| EXT-03 | Phase 2 | Pending |
+| EXT-01 | Phase 2 | Complete |
+| EXT-02 | Phase 2 | Complete |
+| EXT-03 | Phase 2 | Complete |
 | STATE-02 | Phase 2 | Pending |
 | STATE-03 | Phase 2 | Pending |
 | AI-01 | Phase 3 | Pending |
