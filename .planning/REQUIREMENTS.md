@@ -20,8 +20,8 @@
 ### State And Dedupe
 
 - [x] **STATE-01**: Service persists URL, source type, metadata, content hash, summary JSON, notification status, and timestamps in Postgres.
-- [ ] **STATE-02**: First run seeds currently discovered articles without sending WhatsApp alerts.
-- [ ] **STATE-03**: Repeated runs do not notify the same article more than once.
+- [x] **STATE-02**: First run seeds currently discovered articles without sending WhatsApp alerts.
+- [x] **STATE-03**: Repeated runs do not notify the same article more than once.
 
 ### Summaries And Notifications
 
@@ -84,8 +84,8 @@
 | EXT-01 | Phase 2 | Complete |
 | EXT-02 | Phase 2 | Complete |
 | EXT-03 | Phase 2 | Complete |
-| STATE-02 | Phase 2 | Pending |
-| STATE-03 | Phase 2 | Pending |
+| STATE-02 | Phase 2 | Complete |
+| STATE-03 | Phase 2 | Complete |
 | AI-01 | Phase 3 | Pending |
 | NOTIF-01 | Phase 3 | Pending |
 | NOTIF-02 | Phase 3 | Pending |
