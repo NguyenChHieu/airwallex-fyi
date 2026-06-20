@@ -32,7 +32,7 @@
 ### Operations
 
 - [x] **OPS-01**: Service reads database, OpenAI, Twilio, WhatsApp recipient, scheduler, dry-run, and admin token settings from environment variables.
-- [ ] **OPS-02**: Service exposes protected admin endpoints for health, recent posts, and manual run-once.
+- [x] **OPS-02**: Service exposes protected admin endpoints for health, recent posts, and manual run-once.
 - [ ] **OPS-03**: Service can run continuously on a schedule and can also execute a single check with `--run-once`.
 
 ### Quality
@@ -76,7 +76,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | OPS-01 | Phase 1 | Complete |
-| OPS-02 | Phase 1 | Pending |
+| OPS-02 | Phase 1 | Complete |
 | STATE-01 | Phase 1 | Complete |
 | SRC-01 | Phase 2 | Pending |
 | SRC-02 | Phase 2 | Pending |

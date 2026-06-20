@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Executing Phase AWXFYI-01
-last_updated: "2026-06-20T00:49:16.045Z"
+status: Phase 1 complete
+last_updated: "2026-06-20T00:56:56.788Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 0
+  completed_plans: 3
+  percent: 25
 ---
-
 # State: Airwallex FYI
 
 ## Project Reference
@@ -19,13 +18,13 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-06-20)
 
 **Core value:** The service reliably tells the user when Airwallex publishes a new public update, with a short useful summary and a direct source link.
-**Current focus:** Phase AWXFYI-01 — Service Skeleton And Persistence
+**Current focus:** Phase AWXFYI-02 - Airwallex Source Monitoring
 
 ## Workflow State
 
 - Project initialized: 2026-06-20
-- Current phase: 1
-- Current status: Ready to execute Phase 1 after local GSD review
+- Current phase: 2
+- Current status: Phase 1 complete; ready to discuss and plan Phase 2
 - Planning mode: vertical MVP
 - GSD config: `.planning/config.json`
 
@@ -33,11 +32,11 @@ See: `.planning/PROJECT.md` (updated 2026-06-20)
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Service Skeleton And Persistence | Planned and locally reviewed - 3 plans |
+| 1 | Service Skeleton And Persistence | Complete - 3 plans executed |
 | 2 | Airwallex Source Monitoring | Pending |
 | 3 | Summaries And WhatsApp Alerts | Pending |
 | 4 | Scheduling, Verification, And Deployment Readiness | Pending |
 
 ## Next Step
 
-Run `$gsd-execute-phase 1` to implement the Phase 1 plans. External Claude/Codex review was not run because approval for external document disclosure was blocked; see `01-REVIEWS.md`.
+Run `$gsd-discuss-phase 2` to gather Phase 2 source-monitoring details, then `$gsd-plan-phase 2` when the phase is ready to turn into executable plans.
