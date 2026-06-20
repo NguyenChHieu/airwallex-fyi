@@ -73,7 +73,10 @@ class PostStateServiceTest @Autowired constructor(
         val updateWork = postStateService.planWork(listOf(changed)).workItems.single()
         val result = postStateService.apply(updateWork, articleFor(changed, hash = "new-hash", title = "New title"))
 
+        val updatedCount = listOf(result).count { it.kind == PostApplyKind.UPDATED }
+
         assertThat(result.kind).isEqualTo(PostApplyKind.UPDATED)
+        assertThat(updatedCount).isEqualTo(1)
         assertThat(postRepository.count()).isEqualTo(1)
         val updated = postRepository.findByUrl(original.url)
         assertThat(updated?.contentHash).isEqualTo("new-hash")
