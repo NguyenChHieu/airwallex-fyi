@@ -7,9 +7,9 @@
 
 ### Source Monitoring
 
-- [ ] **SRC-01**: Service can discover public Airwallex global Blog and Newsroom article URLs from `https://www.airwallex.com/global/sitemap-blog.xml`.
-- [ ] **SRC-02**: Service excludes pagination, non-article URLs, regional duplicates, and non-public app/API paths from v1 monitoring.
-- [ ] **SRC-03**: Service records source URL, source type, sitemap lastmod, and discovered timestamp for each candidate article.
+- [x] **SRC-01**: Service can discover public Airwallex global Blog and Newsroom article URLs from `https://www.airwallex.com/global/sitemap-blog.xml`.
+- [x] **SRC-02**: Service excludes pagination, non-article URLs, regional duplicates, and non-public app/API paths from v1 monitoring.
+- [x] **SRC-03**: Service records source URL, source type, sitemap lastmod, and discovered timestamp for each candidate article.
 
 ### Article Extraction
 
@@ -78,9 +78,9 @@
 | OPS-01 | Phase 1 | Complete |
 | OPS-02 | Phase 1 | Complete |
 | STATE-01 | Phase 1 | Complete |
-| SRC-01 | Phase 2 | Pending |
-| SRC-02 | Phase 2 | Pending |
-| SRC-03 | Phase 2 | Pending |
+| SRC-01 | Phase 2 | Complete |
+| SRC-02 | Phase 2 | Complete |
+| SRC-03 | Phase 2 | Complete |
 | EXT-01 | Phase 2 | Pending |
 | EXT-02 | Phase 2 | Pending |
 | EXT-03 | Phase 2 | Pending |
