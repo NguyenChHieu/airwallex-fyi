@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://www.airwallex.com/global/blog/introducing-airwallex-agentos-manage-your-financial-operations-in-your-preferred-agent-environment</loc>
+    <lastmod>2026-06-18T10:15:30Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.airwallex.com/global/newsroom/airwallex-acquires-leapfin-expanding-financial-lifecycle-capabilities</loc>
+    <lastmod>2026-06-17</lastmod>
+  </url>
+  <url>
+    <loc>https://www.airwallex.com/global/blog/page/2</loc>
+    <lastmod>2026-06-01T00:00:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.airwallex.com/us/blog/us-regional-duplicate</loc>
+  </url>
+  <url>
+    <loc>https://www.airwallex.com/global/blog/nested/path</loc>
+  </url>
+  <url>
+    <loc>https://www.airwallex.com/api/v1/private-feed</loc>
+  </url>
+  <url>
+    <loc>https://www.airwallex.com/app/login</loc>
+  </url>
+  <url>
+    <loc>https://example.com/global/blog/not-airwallex</loc>
+  </url>
+</urlset>
