@@ -1,4 +1,4 @@
-﻿# Requirements: Airwallex FYI
+# Requirements: Airwallex FYI
 
 **Defined:** 2026-06-20
 **Core Value:** The service reliably tells the user when Airwallex publishes a new public update, with a short useful summary and a direct source link.
@@ -91,13 +91,23 @@
 | NOTIF-02 | Phase 3 | Pending |
 | OPS-03 | Phase 4 | Pending |
 | QUAL-01 | Phase 4 | Pending |
+| NOTIF-03 | Future | Pending |
+| NOTIF-04 | Future | Pending |
+| NOTIF-05 | Future | Pending |
+| SRC-04 | Future | Pending |
+| SRC-05 | Future | Pending |
+| AI-02 | Future | Pending |
+| AI-03 | Future | Pending |
+| UI-01 | Future | Pending |
 
 **Coverage:**
 
 - v1 requirements: 16 total
+- v2 backlog requirements: 8 total
 - Mapped to phases: 16
+- Future backlog: 8
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-20*
-*Last updated: 2026-06-20 after initialization*
+*Last updated: 2026-06-21 after Phase 2 completion*
