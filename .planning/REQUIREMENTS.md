@@ -29,9 +29,17 @@
 - [x] **NOTIF-01**: Service sends a concise WhatsApp alert for each new article through Twilio Sandbox.
 - [x] **NOTIF-02**: Service supports dry-run mode that logs the alert instead of calling Twilio.
 
+### Subscribers And Digests
+
+- [ ] **SUB-01**: Service stores subscribers and delivery channels separately from canonical posts and summaries.
+- [ ] **SUB-02**: Service keeps summaries centralized and reuses one summary per post/content version across all subscribers.
+- [ ] **SUB-03**: Service can fan out notifications to all active subscribers without duplicate delivery per post/channel/recipient.
+- [ ] **DIGEST-01**: Service sends a daily digest/update to subscribers only when new posts are available.
+- [ ] **DIGEST-02**: Service records per-subscriber delivery status so one failed recipient does not block others.
+
 ### Operations
 
-- [x] **OPS-01**: Service reads database, OpenAI, Twilio, WhatsApp recipient, scheduler, dry-run, and admin token settings from environment variables.
+- [x] **OPS-01**: Service reads database, Gemini, Twilio, WhatsApp recipient, scheduler, dry-run, and admin token settings from environment variables.
 - [x] **OPS-02**: Service exposes protected admin endpoints for health, recent posts, and manual run-once.
 - [ ] **OPS-03**: Service can run continuously on a schedule and can also execute a single check with `--run-once`.
 
@@ -44,7 +52,7 @@
 ### Notifications
 
 - **NOTIF-03**: Send Slack updates alongside WhatsApp.
-- **NOTIF-04**: Support daily or weekly digest messages.
+- **NOTIF-04**: Support weekly digest mode and richer digest preferences.
 - **NOTIF-05**: Add production WhatsApp Business sender and template support.
 
 ### Sources
@@ -89,6 +97,11 @@
 | AI-01 | Phase 3 | Complete |
 | NOTIF-01 | Phase 3 | Complete |
 | NOTIF-02 | Phase 3 | Complete |
+| SUB-01 | Phase 03.1 | Pending |
+| SUB-02 | Phase 03.1 | Pending |
+| SUB-03 | Phase 03.1 | Pending |
+| DIGEST-01 | Phase 03.1 | Pending |
+| DIGEST-02 | Phase 03.1 | Pending |
 | OPS-03 | Phase 4 | Pending |
 | QUAL-01 | Phase 4 | Pending |
 | NOTIF-03 | Future | Pending |
@@ -102,12 +115,12 @@
 
 **Coverage:**
 
-- v1 requirements: 16 total
+- v1 requirements: 21 total
 - v2 backlog requirements: 8 total
-- Mapped to phases: 16
+- Mapped to phases: 21
 - Future backlog: 8
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-20*
-*Last updated: 2026-06-21 after Phase 2 completion*
+*Last updated: 2026-06-21 before Phase 4 to add centralized subscriber fanout*

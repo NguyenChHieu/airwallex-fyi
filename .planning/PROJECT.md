@@ -2,13 +2,13 @@
 
 ## What This Is
 
-Airwallex FYI is a personal update monitor for Airwallex's public global Blog and Newsroom. It checks public Airwallex update sources, detects newly published items, summarizes them, and sends concise WhatsApp alerts so the user can stay current on company, product, and technical changes.
+Airwallex FYI is a centralized update monitor for Airwallex's public global Blog and Newsroom. It checks public Airwallex update sources, detects newly published items, creates one canonical summary per post/content version, and sends concise WhatsApp daily updates to subscribed recipients so they can stay current on company, product, and technical changes.
 
-The first implementation is a Kotlin Spring Boot service designed as a learning project and a useful private tool. It favors a reliable monitor pipeline over a complex agent system.
+The first implementation is a Kotlin Spring Boot service designed as a learning project and a useful private tool. It favors a reliable centralized monitor and fanout pipeline over a complex agent system.
 
 ## Core Value
 
-The service reliably tells the user when Airwallex publishes a new public update, with a short useful summary and a direct source link.
+The service reliably tells subscribed recipients when Airwallex publishes a new public update, with a short useful summary and a direct source link.
 
 ## Requirements
 
@@ -21,15 +21,15 @@ The service reliably tells the user when Airwallex publishes a new public update
 - [ ] Monitor Airwallex global Blog and Newsroom public article URLs.
 - [ ] Detect new posts without duplicate alerts.
 - [ ] Extract title, date, description, author/source type, and article body from public pages.
-- [ ] Summarize new posts into short structured updates.
-- [ ] Send WhatsApp alerts through Twilio.
-- [ ] Store seen posts, hashes, summaries, and notification status in Postgres.
+- [ ] Create one canonical structured summary per new post/content version.
+- [ ] Store seen posts, hashes, centralized summaries, subscribers, and per-subscriber delivery status in Postgres.
+- [ ] Fan out WhatsApp daily updates through Twilio to active subscribers without duplicate delivery.
 - [ ] Support first-run seeding so historical posts do not spam WhatsApp.
 - [ ] Provide dry-run and admin run-once flows for local testing.
 
 ### Out of Scope
 
-- Slack notifications - useful later, but WhatsApp is v1.
+- Slack notifications - useful later, but WhatsApp remains the first delivery channel.
 - Airwallex private APIs or app paths - only public pages allowed.
 - Unofficial WhatsApp Web automation - brittle and risky compared with Twilio.
 - Regional Airwallex sites, docs, status pages, and external news - defer until the global Blog + Newsroom path is stable.
@@ -38,7 +38,7 @@ The service reliably tells the user when Airwallex publishes a new public update
 
 ## Context
 
-The user is learning Kotlin Spring Boot and wants a realistic backend project. This project is a good fit because it exercises scheduled jobs, HTTP clients, parsing, persistence, LLM integration, third-party messaging, environment configuration, and tests without needing a large frontend.
+The user is learning Kotlin Spring Boot and wants a realistic backend project. This project is a good fit because it exercises scheduled jobs, HTTP clients, parsing, persistence, LLM integration, third-party messaging, environment configuration, and tests without needing a large frontend. Before Phase 4, the architecture shifted from a single-recipient alert path to centralized summaries with per-subscriber delivery fanout.
 
 Public source checks found:
 
@@ -55,6 +55,7 @@ Public source checks found:
 - **Source policy**: Use only public Airwallex pages and sitemaps - avoid blocked app/API paths from robots.txt.
 - **Notification channel**: WhatsApp first through Twilio - selected by the user.
 - **Language/source scope**: Global English Blog + Newsroom only - keeps v1 focused and avoids noisy regional duplication.
+- **Subscriber model**: Posts and summaries are canonical service-owned data; subscriber/channel delivery state is separate.
 - **No historical spam**: First production run must seed existing posts without notifying.
 - **Credentials**: All API keys and phone numbers must come from environment variables, not committed files.
 - **Deployment shape**: Long-running Spring Boot service with scheduler plus `--run-once`; avoid mixing that with a GitHub Actions-only design.
@@ -67,10 +68,11 @@ Public source checks found:
 | Blog + Newsroom v1 | Captures the user's target public updates without docs/status noise. | Pending |
 | WhatsApp first | User selected WhatsApp over Slack for v1. | Pending |
 | Twilio Sandbox for v1 | Fastest reliable WhatsApp prototype path. | Pending |
-| OpenAI structured summaries | Keeps alert format predictable and easy to test. | Pending |
+| Gemini structured summaries | Keeps alert format predictable and easy to test while using the selected free AI path. | Pending |
 | Spring Data JDBC over JPA | Simpler persistence model for a small service with explicit tables. | Pending |
 | Public sitemap discovery first | More stable and respectful than arbitrary crawling. | Pending |
 | First-run seed without alerts | Prevents historical spam when the monitor first runs. | Pending |
+| Centralized subscriber fanout | Create and update summaries once, then deliver per subscriber/channel with delivery records. | Pending |
 
 ## Evolution
 
@@ -90,4 +92,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-20 after initialization*
+*Last updated: 2026-06-21 before Phase 4 to add centralized subscriber fanout*

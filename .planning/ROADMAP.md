@@ -2,7 +2,7 @@
 
 ## Overview
 
-Airwallex FYI will be built as a vertical MVP in four phases. Each phase should leave the service more runnable and testable, with Phase 1 establishing the skeleton, Phase 2 making monitoring real, Phase 3 adding intelligence and notifications, and Phase 4 hardening operations.
+Airwallex FYI will be built as a vertical MVP across five planning phases. Each phase should leave the service more runnable and testable, with Phase 1 establishing the skeleton, Phase 2 making monitoring real, Phase 3 adding intelligence and WhatsApp sending, Phase 03.1 converting that into centralized subscriber fanout and daily digests, and Phase 4 hardening operations.
 
 ### Phase 1: Service Skeleton And Persistence
 
@@ -49,6 +49,22 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 4. Twilio Sandbox send path works behind a notifier interface.
 5. Dry-run mode logs the exact alert payload and never calls Twilio.
 
+### Phase 03.1: Subscriber Fanout And Daily Digests (INSERTED)
+
+**Goal:** Convert the Phase 3 single-recipient alert path into a centralized subscriber fanout model where the service creates posts and summaries once, then sends daily updates to subscribed channels.
+**Mode:** mvp
+
+**Requirements**: SUB-01, SUB-02, SUB-03, DIGEST-01, DIGEST-02
+**Depends on:** Phase 3
+
+**Success Criteria**:
+
+1. Service models subscribers and delivery channels separately from posts and summaries.
+2. Summaries remain centralized: one canonical summary per post/content version, reused across recipients and channels.
+3. Daily digest/send path fans out new summaries to subscribed WhatsApp recipients; Slack/chatbot surfaces stay interface-ready but future unless explicitly pulled into v1.
+4. If no new posts exist for the day, no subscriber message is sent by default.
+5. Delivery records are per subscriber/channel so one failed recipient does not block others and duplicate sends are prevented.
+
 ### Phase 4: Scheduling, Verification, And Deployment Readiness
 
 **Goal:** Make the monitor safe to run unattended and easy to verify.
@@ -66,7 +82,7 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 
 ## Future Phases
 
-- Slack notifications and digest mode.
+- Slack notifications and weekly or richer digest mode.
 - Production WhatsApp Business sender/template setup.
 - Docs/status/regional source monitoring.
 - Importance scoring and user-controlled filters.
