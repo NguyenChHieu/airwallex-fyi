@@ -25,9 +25,9 @@
 
 ### Summaries And Notifications
 
-- [ ] **AI-01**: Service summarizes each new article into structured fields: headline, summary bullets, why it matters, tags, and source type.
-- [ ] **NOTIF-01**: Service sends a concise WhatsApp alert for each new article through Twilio Sandbox.
-- [ ] **NOTIF-02**: Service supports dry-run mode that logs the alert instead of calling Twilio.
+- [x] **AI-01**: Service summarizes each new article into structured fields: headline, summary bullets, why it matters, tags, and source type.
+- [x] **NOTIF-01**: Service sends a concise WhatsApp alert for each new article through Twilio Sandbox.
+- [x] **NOTIF-02**: Service supports dry-run mode that logs the alert instead of calling Twilio.
 
 ### Operations
 
@@ -86,9 +86,9 @@
 | EXT-03 | Phase 2 | Complete |
 | STATE-02 | Phase 2 | Complete |
 | STATE-03 | Phase 2 | Complete |
-| AI-01 | Phase 3 | Pending |
-| NOTIF-01 | Phase 3 | Pending |
-| NOTIF-02 | Phase 3 | Pending |
+| AI-01 | Phase 3 | Complete |
+| NOTIF-01 | Phase 3 | Complete |
+| NOTIF-02 | Phase 3 | Complete |
 | OPS-03 | Phase 4 | Pending |
 | QUAL-01 | Phase 4 | Pending |
 | NOTIF-03 | Future | Pending |

@@ -14,7 +14,7 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 **Success Criteria**:
 
 1. Spring Boot Kotlin project builds and starts locally.
-2. Environment-backed configuration exists for database, OpenAI, Twilio, WhatsApp recipient, scheduler, dry-run, and admin token values.
+2. Environment-backed configuration exists for database, AI provider, Gemini, Twilio, WhatsApp recipient, scheduler, dry-run, and admin token values.
 3. Flyway creates the initial tables for posts, summaries, and notification status.
 4. Protected admin endpoints exist for health, recent posts, and manual run-once, even if run-once is initially stubbed.
 5. Unit or slice tests verify configuration binding, persistence schema assumptions, and admin token protection.
@@ -43,7 +43,7 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 
 **Success Criteria**:
 
-1. Service calls OpenAI only for articles that need a new summary.
+1. Service calls the configured Gemini-backed AI summarizer only for articles that need a new summary.
 2. Summary output is parsed as structured JSON with headline, bullets, why-it-matters, tags, and source type.
 3. WhatsApp alert formatting is concise and includes direct source link.
 4. Twilio Sandbox send path works behind a notifier interface.
@@ -60,7 +60,7 @@ Airwallex FYI will be built as a vertical MVP in four phases. Each phase should 
 
 1. Service supports scheduled polling and `--run-once` execution.
 2. Tests cover sitemap filtering, extraction, first-run seed, dedupe, dry-run, and new-post notification flow.
-3. README documents local setup, required env vars, Twilio Sandbox setup, OpenAI setup, and run commands.
+3. README documents local setup, required env vars, Twilio Sandbox setup, Gemini setup, and run commands.
 4. `.env.example` documents expected settings without secrets.
 5. Final smoke test demonstrates a dry-run check against fixture or mocked Airwallex data.
 
