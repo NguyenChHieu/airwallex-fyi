@@ -13,7 +13,6 @@ data class ExtractedArticle(
     val bodyText: String,
     val contentHash: String,
     val extractionSource: ExtractionSource,
-    val imageUrls: List<String> = emptyList(),
 )
 
 enum class ExtractionSource {

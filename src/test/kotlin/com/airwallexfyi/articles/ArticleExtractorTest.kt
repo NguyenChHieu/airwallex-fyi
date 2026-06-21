@@ -29,7 +29,6 @@ class ArticleExtractorTest {
         assertThat(article.bodyText).contains("global accounts and reduce manual follow-up")
         assertThat(article.contentHash).hasSize(64)
         assertThat(article.extractionSource).isEqualTo(ExtractionSource.STRUCTURED)
-        assertThat(article.imageUrls).containsExactly("https://www.airwallex.com/images/blog-agentos.png")
     }
 
     @Test
@@ -103,8 +102,6 @@ class ArticleExtractorTest {
         val changedMediaHtml = fixture("/fixtures/airwallex/blog-agentos.html")
             .replace("https://www.airwallex.com/images/blog-agentos.png", "https://www.airwallex.com/images/changed.png")
         val changedMedia = extractor(changedMediaHtml).extract(entry)
-
-        assertThat(changedMedia.imageUrls).containsExactly("https://www.airwallex.com/images/changed.png")
         assertThat(changedMedia.contentHash).isEqualTo(original.contentHash)
     }
 

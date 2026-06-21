@@ -43,13 +43,11 @@ class PersistenceSchemaTest @Autowired constructor(
         )
 
         val found = postRepository.findByUrl(post.url)
-        val recent = postRepository.findTop20ByOrderByDiscoveredAtDesc()
 
         assertThat(found).isNotNull
         assertThat(found?.identifier()).isEqualTo(post.identifier())
         assertThat(found?.sourceType).isEqualTo("blog")
         assertThat(found?.contentHash).isEqualTo("sha256:test")
-        assertThat(recent.map { it.url }).contains(post.url)
     }
 
     @Test

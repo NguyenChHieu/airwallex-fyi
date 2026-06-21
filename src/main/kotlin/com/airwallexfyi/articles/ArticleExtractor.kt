@@ -61,7 +61,6 @@ class ArticleExtractor(
             bodyText = body,
             contentHash = contentHashService.hash(title, description, body),
             extractionSource = ExtractionSource.STRUCTURED,
-            imageUrls = imageUrlsFrom(document),
         )
         return article
     }
@@ -94,7 +93,6 @@ class ArticleExtractor(
             bodyText = body,
             contentHash = contentHashService.hash(title, description, body),
             extractionSource = ExtractionSource.HTML_FALLBACK,
-            imageUrls = imageUrlsFrom(document),
         )
     }
 
@@ -121,11 +119,6 @@ class ArticleExtractor(
             ?: runCatching { LocalDate.parse(date).atStartOfDay().toInstant(ZoneOffset.UTC) }.getOrNull()
     }
 
-    private fun imageUrlsFrom(document: Document): List<String> =
-        document.select("meta[property=og:image], meta[name=twitter:image]")
-            .mapNotNull { element -> element.attr("content").cleanText() }
-            .filter { value -> value.startsWith("https://") || value.startsWith("http://") }
-            .distinct()
 
     private fun String?.cleanText(): String? =
         this?.trim()?.replace(WHITESPACE, " ")?.takeIf { it.isNotBlank() }
