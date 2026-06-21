@@ -34,7 +34,7 @@
 - [ ] **SUB-01**: Service stores subscribers and delivery channels separately from canonical posts and summaries.
 - [ ] **SUB-02**: Service keeps summaries centralized and reuses one summary per post/content version across all subscribers.
 - [ ] **SUB-03**: Service can fan out notifications to all active subscribers without duplicate delivery per post/channel/recipient.
-- [ ] **DIGEST-01**: Service sends a daily digest/update to subscribers only when new posts are available.
+- [ ] **DIGEST-01**: Service sends one daily subscriber digest/status message per active channel: new summarized posts when available, or a no-change message when none are eligible.
 - [ ] **DIGEST-02**: Service records per-subscriber delivery status so one failed recipient does not block others.
 
 ### Operations
@@ -123,4 +123,4 @@
 
 ---
 *Requirements defined: 2026-06-20*
-*Last updated: 2026-06-21 before Phase 4 to add centralized subscriber fanout*
+*Last updated: 2026-06-22 after Phase 03.1 discussion*

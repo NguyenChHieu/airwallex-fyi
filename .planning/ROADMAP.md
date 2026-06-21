@@ -62,7 +62,7 @@ Airwallex FYI will be built as a vertical MVP across five planning phases. Each 
 1. Service models subscribers and delivery channels separately from posts and summaries.
 2. Summaries remain centralized: one canonical summary per post/content version, reused across recipients and channels.
 3. Daily digest/send path fans out new summaries to subscribed WhatsApp recipients; Slack/chatbot surfaces stay interface-ready but future unless explicitly pulled into v1.
-4. If no new posts exist for the day, no subscriber message is sent by default.
+4. If no new posts exist for the day, subscribers receive one no-change status message per service-local day.
 5. Delivery records are per subscriber/channel so one failed recipient does not block others and duplicate sends are prevented.
 
 ### Phase 4: Scheduling, Verification, And Deployment Readiness
