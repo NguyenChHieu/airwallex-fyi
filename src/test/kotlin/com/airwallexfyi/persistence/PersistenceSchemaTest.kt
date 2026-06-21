@@ -2,6 +2,7 @@ package com.airwallexfyi.persistence
 
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
+import com.airwallexfyi.posts.ProcessingStatus
 import java.time.Instant
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.jdbc.core.JdbcTemplate
 
 @SpringBootTest(
     properties = [
@@ -21,6 +23,7 @@ import org.springframework.dao.DataIntegrityViolationException
 )
 class PersistenceSchemaTest @Autowired constructor(
     private val postRepository: PostRepository,
+    private val jdbcTemplate: JdbcTemplate,
 ) {
     @Test
     fun `inserts and reads post records by url`() {
@@ -60,4 +63,75 @@ class PersistenceSchemaTest @Autowired constructor(
             postRepository.save(PostRecord(url = url, sourceType = "newsroom"))
         }.isInstanceOf(DataIntegrityViolationException::class.java)
     }
+
+    @Test
+    fun `summary and notification tables expose phase three columns`() {
+        assertThat(columnsFor("summaries")).containsAll(
+            listOf(
+                "id",
+                "post_id",
+                "headline",
+                "summary_json",
+                "why_it_matters",
+                "tags_json",
+                "model",
+                "prompt_version",
+                "created_at",
+                "updated_at",
+            ),
+        )
+        assertThat(columnsFor("notification_attempts")).containsAll(
+            listOf(
+                "id",
+                "post_id",
+                "channel",
+                "recipient",
+                "status",
+                "provider_message_id",
+                "error_message",
+                "attempted_at",
+                "sent_at",
+                "created_at",
+                "updated_at",
+            ),
+        )
+        assertThat(uniqueConstraintsFor("summaries")).contains("uq_summaries_post_id")
+        assertThat(uniqueConstraintsFor("notification_attempts")).contains("uq_notification_attempts_post_channel_recipient")
+    }
+
+    @Test
+    fun `post records can use every lifecycle processing status`() {
+        ProcessingStatus.entries.forEach { status ->
+            val post = postRepository.save(
+                PostRecord(
+                    url = "https://www.airwallex.com/global/blog/status-${status.name.lowercase()}-${System.nanoTime()}",
+                    sourceType = "BLOG",
+                    processingStatus = status.name,
+                ),
+            )
+
+            assertThat(postRepository.findByUrl(post.url)?.processingStatus).isEqualTo(status.name)
+        }
+        assertThat(ProcessingStatus.valueOf("APPROVAL_NEEDED")).isEqualTo(ProcessingStatus.APPROVAL_NEEDED)
+    }
+
+    private fun columnsFor(table: String): Set<String> = jdbcTemplate.queryForList(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = ?
+        """.trimIndent(),
+        String::class.java,
+        table,
+    ).filterNotNull().toSet()
+
+    private fun uniqueConstraintsFor(table: String): Set<String> = jdbcTemplate.queryForList(
+        """
+        SELECT constraint_name
+        FROM information_schema.table_constraints
+        WHERE table_name = ? AND constraint_type = 'UNIQUE'
+        """.trimIndent(),
+        String::class.java,
+        table,
+    ).filterNotNull().toSet()
 }
