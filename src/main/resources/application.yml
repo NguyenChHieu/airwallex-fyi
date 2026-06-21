@@ -11,9 +11,11 @@ spring:
     locations: classpath:db/migration
 
 airwallex-fyi:
-  openai:
-    api-key: ${OPENAI_API_KEY:}
-    model: ${OPENAI_MODEL:gpt-4.1-mini}
+  ai:
+    provider: ${AI_PROVIDER:gemini}
+    model: ${AI_MODEL:gemini-3.5-flash}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
   twilio:
     account-sid: ${TWILIO_ACCOUNT_SID:}
     auth-token: ${TWILIO_AUTH_TOKEN:}

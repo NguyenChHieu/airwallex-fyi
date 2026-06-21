@@ -8,7 +8,8 @@ import org.springframework.validation.annotation.Validated
 @ConfigurationProperties(prefix = "airwallex-fyi")
 @Validated
 data class AppProperties(
-    @field:Valid val openai: OpenAi = OpenAi(),
+    @field:Valid val ai: Ai = Ai(),
+    @field:Valid val gemini: Gemini = Gemini(),
     @field:Valid val twilio: Twilio = Twilio(),
     @field:Valid val whatsapp: WhatsApp = WhatsApp(),
     @field:Valid val scheduler: Scheduler = Scheduler(),
@@ -16,9 +17,13 @@ data class AppProperties(
     @field:Valid val admin: Admin = Admin(),
     val dryRun: Boolean = true,
 ) {
-    data class OpenAi(
+    data class Ai(
+        val provider: String = "gemini",
+        val model: String = "gemini-3.5-flash",
+    )
+
+    data class Gemini(
         val apiKey: String = "",
-        val model: String = "gpt-4.1-mini",
     )
 
     data class Twilio(

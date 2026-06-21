@@ -5,7 +5,7 @@ import com.airwallexfyi.posts.SourceType
 private const val MIN_BULLETS = 3
 private const val MAX_BULLETS = 5
 
-data class StructuredSummary private constructor(
+class StructuredSummary private constructor(
     val headline: String,
     val bullets: List<String>,
     val whyItMatters: String,
@@ -50,6 +50,18 @@ data class StructuredSummary private constructor(
             )
         }
     }
+
+    override fun equals(other: Any?): Boolean = other is StructuredSummary &&
+        headline == other.headline &&
+        bullets == other.bullets &&
+        whyItMatters == other.whyItMatters &&
+        tags == other.tags &&
+        sourceType == other.sourceType
+
+    override fun hashCode(): Int = listOf(headline, bullets, whyItMatters, tags, sourceType).hashCode()
+
+    override fun toString(): String =
+        "StructuredSummary(headline=$headline, bullets=$bullets, whyItMatters=$whyItMatters, tags=$tags, sourceType=$sourceType)"
 }
 
 class SummaryValidationException(message: String) : IllegalArgumentException(message)

@@ -15,8 +15,9 @@ class AppPropertiesTest {
     fun `binds application properties from environment style values`() {
         contextRunner
             .withPropertyValues(
-                "airwallex-fyi.openai.api-key=test-openai-key",
-                "airwallex-fyi.openai.model=gpt-test",
+                "airwallex-fyi.ai.provider=gemini",
+                "airwallex-fyi.ai.model=gemini-test",
+                "airwallex-fyi.gemini.api-key=test-gemini-key",
                 "airwallex-fyi.twilio.account-sid=test-sid",
                 "airwallex-fyi.twilio.auth-token=test-token",
                 "airwallex-fyi.twilio.whatsapp-from=whatsapp:+15550000001",
@@ -31,8 +32,9 @@ class AppPropertiesTest {
             .run { context ->
                 val properties = context.getBean(AppProperties::class.java)
 
-                assertThat(properties.openai.apiKey).isEqualTo("test-openai-key")
-                assertThat(properties.openai.model).isEqualTo("gpt-test")
+                assertThat(properties.ai.provider).isEqualTo("gemini")
+                assertThat(properties.ai.model).isEqualTo("gemini-test")
+                assertThat(properties.gemini.apiKey).isEqualTo("test-gemini-key")
                 assertThat(properties.twilio.accountSid).isEqualTo("test-sid")
                 assertThat(properties.twilio.authToken).isEqualTo("test-token")
                 assertThat(properties.twilio.whatsappFrom).isEqualTo("whatsapp:+15550000001")
@@ -53,7 +55,9 @@ class AppPropertiesTest {
 
             assertThat(properties.dryRun).isTrue()
             assertThat(properties.scheduler.enabled).isFalse()
-            assertThat(properties.openai.apiKey).isBlank()
+            assertThat(properties.ai.provider).isEqualTo("gemini")
+            assertThat(properties.ai.model).isEqualTo("gemini-3.5-flash")
+            assertThat(properties.gemini.apiKey).isBlank()
             assertThat(properties.twilio.authToken).isBlank()
             assertThat(properties.source.sitemapUrl).isEqualTo("https://www.airwallex.com/global/sitemap-blog.xml")
             assertThat(properties.source.firstRunSeedLimit).isEqualTo(25)
