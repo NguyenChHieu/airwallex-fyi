@@ -1,5 +1,6 @@
 package com.airwallexfyi.admin
 
+import com.airwallexfyi.monitor.MonitorApprovalNeeded
 import com.airwallexfyi.monitor.MonitorRunError
 import com.airwallexfyi.monitor.MonitorRunResult
 import com.airwallexfyi.monitor.MonitorRunSampleUrls
@@ -42,9 +43,18 @@ data class AdminRunOnceResponse(
     val updatedCount: Int,
     val skippedCount: Int,
     val failedCount: Int,
+    val summarizedCount: Int,
+    val summaryFailedCount: Int,
+    val approvalNeededCount: Int,
+    val alertSentCount: Int,
+    val dryRunAlertCount: Int,
+    val alertFailedCount: Int,
     val sampleUrls: MonitorRunSampleUrls,
     val sampleErrors: List<MonitorRunError>,
+    val samplePayloads: List<String>,
+    val sampleApprovalNeeded: List<MonitorApprovalNeeded>,
     val externalCallsTriggered: Boolean,
+    val twilioCallsTriggered: Boolean,
 ) {
     companion object {
         fun from(result: MonitorRunResult): AdminRunOnceResponse = AdminRunOnceResponse(
@@ -57,9 +67,27 @@ data class AdminRunOnceResponse(
             updatedCount = result.updatedCount,
             skippedCount = result.skippedCount,
             failedCount = result.failedCount,
+            summarizedCount = result.summarizedCount,
+            summaryFailedCount = result.summaryFailedCount,
+            approvalNeededCount = result.approvalNeededCount,
+            alertSentCount = result.alertSentCount,
+            dryRunAlertCount = result.dryRunAlertCount,
+            alertFailedCount = result.alertFailedCount,
             sampleUrls = result.sampleUrls,
             sampleErrors = result.sampleErrors,
+            samplePayloads = result.samplePayloads,
+            sampleApprovalNeeded = result.sampleApprovalNeeded,
             externalCallsTriggered = result.externalCallsTriggered,
+            twilioCallsTriggered = result.twilioCallsTriggered,
         )
     }
 }
+
+data class AdminSummarizePostResponse(
+    val postId: UUID,
+    val url: String,
+    val status: String,
+    val headline: String? = null,
+    val tags: List<String> = emptyList(),
+    val failureReason: String? = null,
+)

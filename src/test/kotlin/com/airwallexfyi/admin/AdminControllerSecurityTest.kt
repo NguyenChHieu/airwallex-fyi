@@ -1,5 +1,6 @@
 package com.airwallexfyi.admin
 
+import java.util.UUID
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -8,6 +9,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Bean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
@@ -44,6 +46,12 @@ class AdminControllerSecurityTest @Autowired constructor(
                 .header(AdminTokenFilter.ADMIN_TOKEN_HEADER, "test-admin-token"),
         )
             .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `manual summarize endpoint requires admin token`() {
+        mockMvc.perform(post("/admin/posts/${UUID.randomUUID()}/summarize"))
+            .andExpect(status().isUnauthorized)
     }
 
     @TestConfiguration(proxyBeanMethods = false)

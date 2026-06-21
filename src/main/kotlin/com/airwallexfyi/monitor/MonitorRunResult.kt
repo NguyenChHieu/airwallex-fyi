@@ -9,9 +9,18 @@ data class MonitorRunResult(
     val updatedCount: Int,
     val skippedCount: Int,
     val failedCount: Int,
+    val summarizedCount: Int = 0,
+    val summaryFailedCount: Int = 0,
+    val approvalNeededCount: Int = 0,
+    val alertSentCount: Int = 0,
+    val dryRunAlertCount: Int = 0,
+    val alertFailedCount: Int = 0,
     val sampleUrls: MonitorRunSampleUrls = MonitorRunSampleUrls(),
     val sampleErrors: List<MonitorRunError> = emptyList(),
+    val samplePayloads: List<String> = emptyList(),
+    val sampleApprovalNeeded: List<MonitorApprovalNeeded> = emptyList(),
     val externalCallsTriggered: Boolean = false,
+    val twilioCallsTriggered: Boolean = false,
     val message: String,
 )
 
@@ -23,6 +32,11 @@ data class MonitorRunSampleUrls(
 
 data class MonitorRunError(
     val url: String?,
+    val reason: String,
+)
+
+data class MonitorApprovalNeeded(
+    val url: String,
     val reason: String,
 )
 

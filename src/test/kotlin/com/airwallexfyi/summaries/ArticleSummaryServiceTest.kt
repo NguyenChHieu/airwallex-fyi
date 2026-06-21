@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import tools.jackson.databind.ObjectMapper
 
 @SpringBootTest(
@@ -23,6 +24,7 @@ class ArticleSummaryServiceTest @Autowired constructor(
     private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
     private val objectMapper: ObjectMapper,
+    private val jdbcTemplate: NamedParameterJdbcTemplate,
 ) {
     @BeforeEach
     fun deleteRows() {
@@ -49,6 +51,22 @@ class ArticleSummaryServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `manual replacement updates existing summary row`() {
+        val fakeClient = FakeAiSummaryClient(summary = summary(headline = "Fresh approved summary"))
+        val service = service(fakeClient)
+        val post = postRepository.save(post(url = "https://www.airwallex.com/global/blog/replace-summary-${System.nanoTime()}"))
+        summaryRepository.save(SummaryRecord.from(post.identifier(), summary(headline = "Old summary"), "old-model", "old-prompt", objectMapper))
+
+        val result = service.summarize(post, article(url = post.url), replaceExisting = true)
+
+        assertThat(result).isInstanceOf(ArticleSummaryResult.Success::class.java)
+        val summaries = summaryRepository.findAll().toList()
+        assertThat(summaries).hasSize(1)
+        assertThat(summaries.single().headline).isEqualTo("Fresh approved summary")
+        assertThat(summaries.single().model).isEqualTo("gemini-test")
+    }
+
+    @Test
     fun `failed summarization returns bounded failure and creates no row`() {
         val fakeClient = FakeAiSummaryClient(failure = SummaryGenerationException("bad json\nwith details that should be bounded"))
         val service = service(fakeClient)
@@ -66,10 +84,11 @@ class ArticleSummaryServiceTest @Autowired constructor(
         summaryRepository = summaryRepository,
         objectMapper = objectMapper,
         properties = AppProperties(ai = AppProperties.Ai(model = "gemini-test")),
+        jdbcTemplate = jdbcTemplate,
     )
 
-    private fun summary(): StructuredSummary = StructuredSummary.validated(
-        headline = "Airwallex updates its platform",
+    private fun summary(headline: String = "Airwallex updates its platform"): StructuredSummary = StructuredSummary.validated(
+        headline = headline,
         bullets = listOf(
             "New payment tooling shipped",
             "Finance teams get faster workflows",

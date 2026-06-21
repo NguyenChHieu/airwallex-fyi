@@ -4,10 +4,12 @@ import com.airwallexfyi.articles.ExtractedArticle
 import com.airwallexfyi.config.AppProperties
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
+import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.sources.SitemapEntry
 import java.sql.Timestamp
 import java.sql.Types
 import java.time.Instant
+import java.util.UUID
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Service
@@ -51,17 +53,36 @@ class PostStateService(
 
     fun apply(workItem: PostWorkItem, article: ExtractedArticle): PostApplyResult = when (workItem.mode) {
         PostWorkMode.SEED -> {
-            insertArticle(workItem, article, processingStatus = "SEEDED")
-            PostApplyResult(PostApplyKind.SEEDED, article.url)
+            val post = insertArticle(workItem, article, processingStatus = ProcessingStatus.SEEDED.name)
+            PostApplyResult(PostApplyKind.SEEDED, article.url, post)
         }
         PostWorkMode.NEW -> {
-            insertArticle(workItem, article, processingStatus = "DISCOVERED")
-            PostApplyResult(PostApplyKind.NEW, article.url)
+            val post = insertArticle(workItem, article, processingStatus = ProcessingStatus.DISCOVERED.name)
+            PostApplyResult(PostApplyKind.NEW, article.url, post)
         }
         PostWorkMode.UPDATE_CHECK -> updateKnownArticle(workItem, article)
     }
 
-    private fun insertArticle(workItem: PostWorkItem, article: ExtractedArticle, processingStatus: String) {
+    fun updateProcessingStatus(postId: UUID, status: ProcessingStatus): PostRecord? {
+        val params = MapSqlParameterSource()
+            .addValue("id", postId)
+            .addValue("processingStatus", status.name)
+            .addValue("updatedAt", Timestamp.from(Instant.now()))
+
+        jdbcTemplate.update(
+            """
+            UPDATE posts
+               SET processing_status = :processingStatus,
+                   updated_at = :updatedAt
+             WHERE id = :id
+            """.trimIndent(),
+            params,
+        )
+
+        return postRepository.findById(postId).orElse(null)
+    }
+
+    private fun insertArticle(workItem: PostWorkItem, article: ExtractedArticle, processingStatus: String): PostRecord =
         postRepository.save(
             PostRecord(
                 url = article.url,
@@ -77,7 +98,6 @@ class PostStateService(
                 processingStatus = processingStatus,
             ),
         )
-    }
 
     private fun updateKnownArticle(workItem: PostWorkItem, article: ExtractedArticle): PostApplyResult {
         val existing = postRepository.findByUrl(article.url)
@@ -85,7 +105,7 @@ class PostStateService(
 
         if (existing.contentHash == article.contentHash) {
             refreshSitemapLastmod(article.url, workItem.entry.sitemapLastmod)
-            return PostApplyResult(PostApplyKind.SKIPPED, article.url)
+            return PostApplyResult(PostApplyKind.SKIPPED, article.url, postRepository.findByUrl(article.url))
         }
 
         val now = Timestamp.from(Instant.now())
@@ -118,7 +138,7 @@ class PostStateService(
             params,
         )
 
-        return PostApplyResult(PostApplyKind.UPDATED, article.url)
+        return PostApplyResult(PostApplyKind.UPDATED, article.url, postRepository.findByUrl(article.url))
     }
 
     private fun refreshSitemapLastmod(url: String, sitemapLastmod: Instant?) {
@@ -163,6 +183,7 @@ enum class PostWorkMode {
 data class PostApplyResult(
     val kind: PostApplyKind,
     val url: String,
+    val post: PostRecord? = null,
 )
 
 enum class PostApplyKind {

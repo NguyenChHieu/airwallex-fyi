@@ -1,21 +1,34 @@
 package com.airwallexfyi.admin
 
+import com.airwallexfyi.articles.ExtractedArticle
+import com.airwallexfyi.articles.ExtractionSource
 import com.airwallexfyi.config.AppProperties
 import com.airwallexfyi.monitor.MonitorRunService
+import com.airwallexfyi.monitor.PostStateService
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.posts.SourceType
+import com.airwallexfyi.summaries.ArticleSummaryResult
+import com.airwallexfyi.summaries.ArticleSummaryService
+import com.airwallexfyi.summaries.SummaryRepository
 import java.time.Instant
+import java.util.UUID
+import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
 
 @RestController
 class AdminController(
     private val appProperties: AppProperties,
     private val postRepository: PostRepository,
+    private val summaryRepository: SummaryRepository,
+    private val postStateService: PostStateService,
+    private val articleSummaryService: ArticleSummaryService,
     private val monitorRunService: MonitorRunService,
 ) {
     @GetMapping("/admin/health")
@@ -51,6 +64,52 @@ class AdminController(
 
     @PostMapping("/admin/run-once")
     fun runOnce(): AdminRunOnceResponse = AdminRunOnceResponse.from(monitorRunService.runOnce())
+
+    @PostMapping("/admin/posts/{id}/summarize")
+    fun summarizePost(@PathVariable id: UUID): AdminSummarizePostResponse {
+        val post = postRepository.findById(id)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "post not found") }
+        val existingSummary = summaryRepository.findByPostId(post.identifier())
+        if (post.processingStatus != ProcessingStatus.APPROVAL_NEEDED.name && existingSummary != null) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "post already has a summary")
+        }
+
+        return when (val result = articleSummaryService.summarize(post, post.toExtractedArticle(), replaceExisting = true)) {
+            is ArticleSummaryResult.Success -> {
+                postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.SUMMARY_READY)
+                AdminSummarizePostResponse(
+                    postId = post.identifier(),
+                    url = post.url,
+                    status = ProcessingStatus.SUMMARY_READY.name,
+                    headline = result.summary.headline,
+                    tags = result.summary.tags,
+                )
+            }
+            is ArticleSummaryResult.Failure -> {
+                postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.SUMMARY_FAILED)
+                AdminSummarizePostResponse(
+                    postId = post.identifier(),
+                    url = post.url,
+                    status = ProcessingStatus.SUMMARY_FAILED.name,
+                    failureReason = result.reason,
+                )
+            }
+        }
+    }
+
+    private fun PostRecord.toExtractedArticle(): ExtractedArticle = ExtractedArticle(
+        url = url,
+        sourceType = runCatching { SourceType.valueOf(sourceType.uppercase()) }
+            .getOrElse { throw ResponseStatusException(HttpStatus.BAD_REQUEST, "unsupported source type") },
+        title = title ?: url.substringAfterLast('/').ifBlank { url },
+        description = description,
+        author = author,
+        publishedAt = publishedAt,
+        bodyText = articleBody?.takeIf { it.isNotBlank() }
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "post has no article body to summarize"),
+        contentHash = contentHash.orEmpty(),
+        extractionSource = ExtractionSource.HTML_FALLBACK,
+    )
 
     private fun PostRecord.toAdminPostResponse(): AdminPostResponse = AdminPostResponse(
         id = identifier(),
