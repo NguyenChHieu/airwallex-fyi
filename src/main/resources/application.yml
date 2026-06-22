@@ -22,6 +22,9 @@ airwallex-fyi:
     whatsapp-from: ${TWILIO_WHATSAPP_FROM:}
   whatsapp:
     to: ${WHATSAPP_TO:}
+    default-subscriber-display-name: ${WHATSAPP_DEFAULT_SUBSCRIBER_DISPLAY_NAME:Airwallex FYI Subscriber}
+  digest:
+    time-zone: ${DIGEST_TIME_ZONE:Australia/Sydney}
   scheduler:
     enabled: ${SCHEDULER_ENABLED:false}
     fixed-delay-ms: ${SCHEDULER_FIXED_DELAY:300000}

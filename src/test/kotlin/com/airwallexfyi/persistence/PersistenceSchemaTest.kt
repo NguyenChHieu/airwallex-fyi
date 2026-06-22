@@ -4,6 +4,7 @@ import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import java.time.Instant
+import java.util.UUID
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -100,6 +101,82 @@ class PersistenceSchemaTest @Autowired constructor(
     }
 
     @Test
+    fun `subscriber tables expose phase three one columns`() {
+        assertThat(columnsFor("subscribers")).containsAll(
+            listOf("id", "display_name", "status", "created_at", "updated_at"),
+        )
+        assertThat(columnsFor("subscriber_channels")).containsAll(
+            listOf("id", "subscriber_id", "channel", "recipient", "status", "created_at", "updated_at"),
+        )
+        assertThat(uniqueConstraintsFor("subscriber_channels")).contains("uq_subscriber_channels_channel_recipient")
+        assertThat(foreignKeysFor("subscriber_channels")).contains("fk_subscriber_channels_subscriber")
+    }
+
+    @Test
+    fun `subscriber channel schema rejects duplicate recipients and missing subscribers`() {
+        val subscriberId = UUID.randomUUID()
+        val channelId = UUID.randomUUID()
+        val recipient = "whatsapp:+1555${System.nanoTime()}"
+
+        jdbcTemplate.update(
+            """
+            INSERT INTO subscribers (id, display_name, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """.trimIndent(),
+            subscriberId,
+            "Test Subscriber",
+            "ACTIVE",
+            Instant.parse("2026-06-22T00:00:00Z"),
+            Instant.parse("2026-06-22T00:00:00Z"),
+        )
+        jdbcTemplate.update(
+            """
+            INSERT INTO subscriber_channels (id, subscriber_id, channel, recipient, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            channelId,
+            subscriberId,
+            "whatsapp",
+            recipient,
+            "ACTIVE",
+            Instant.parse("2026-06-22T00:00:01Z"),
+            Instant.parse("2026-06-22T00:00:01Z"),
+        )
+
+        assertThatThrownBy {
+            jdbcTemplate.update(
+                """
+                INSERT INTO subscriber_channels (id, subscriber_id, channel, recipient, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+                UUID.randomUUID(),
+                subscriberId,
+                "whatsapp",
+                recipient,
+                "ACTIVE",
+                Instant.parse("2026-06-22T00:00:02Z"),
+                Instant.parse("2026-06-22T00:00:02Z"),
+            )
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
+
+        assertThatThrownBy {
+            jdbcTemplate.update(
+                """
+                INSERT INTO subscriber_channels (id, subscriber_id, channel, recipient, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "whatsapp",
+                "whatsapp:+1666${System.nanoTime()}",
+                "ACTIVE",
+                Instant.parse("2026-06-22T00:00:03Z"),
+                Instant.parse("2026-06-22T00:00:03Z"),
+            )
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
+    }
+
+    @Test
     fun `post records can use every lifecycle processing status`() {
         ProcessingStatus.entries.forEach { status ->
             val post = postRepository.save(
@@ -130,6 +207,16 @@ class PersistenceSchemaTest @Autowired constructor(
         SELECT constraint_name
         FROM information_schema.table_constraints
         WHERE table_name = ? AND constraint_type = 'UNIQUE'
+        """.trimIndent(),
+        String::class.java,
+        table,
+    ).filterNotNull().toSet()
+
+    private fun foreignKeysFor(table: String): Set<String> = jdbcTemplate.queryForList(
+        """
+        SELECT constraint_name
+        FROM information_schema.table_constraints
+        WHERE table_name = ? AND constraint_type = 'FOREIGN KEY'
         """.trimIndent(),
         String::class.java,
         table,
