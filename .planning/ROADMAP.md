@@ -100,7 +100,7 @@ Cross-cutting constraints:
 Plans:
 
 - [x] 04-01 Runtime Run Modes (Wave 1)
-- [ ] 04-02 Fixture-Backed Smoke And Coverage Closure (Wave 2, blocked on 04-01)
+- [x] 04-02 Fixture-Backed Smoke And Coverage Closure (Wave 2, blocked on 04-01)
 - [ ] 04-03 Docs, Env, And Deployment Readiness (Wave 3, blocked on 04-01 and 04-02)
 
 ## Future Phases

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 4
-last_updated: "2026-06-22T11:48:42Z"
+last_updated: "2026-06-22T12:19:56Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 18
-  completed_plans: 16
-  percent: 84
+  completed_plans: 17
+  percent: 94
 ---
 
 # State: Airwallex FYI
@@ -26,10 +26,10 @@ See: `.planning/PROJECT.md` (updated 2026-06-21)
 - Project initialized: 2026-06-20
 - Current Phase: 4
 - Current Phase Name: Scheduling, Verification, And Deployment Readiness
-- Current Plan: 04-02 Fixture-Backed Smoke And Coverage Closure
-- Last Activity: 2026-06-22T11:48:42Z
-- Last Activity Description: Plan 04-01 completed: runtime run-once mode and opt-in scheduler added
-- Current status: Executing Phase 4 - 1/3 plans complete
+- Current Plan: 04-03 Docs, Env, And Deployment Readiness
+- Last Activity: 2026-06-22T12:19:56Z
+- Last Activity Description: Plan 04-02 completed: fixture-backed run-once smoke and QUAL-01 verification passed
+- Current status: Executing Phase 4 - 2/3 plans complete
 - Planning mode: vertical MVP
 - GSD config: `.planning/config.json`
 
@@ -41,11 +41,11 @@ See: `.planning/PROJECT.md` (updated 2026-06-21)
 | 2 | Airwallex Source Monitoring | Complete - 4 plans executed |
 | 3 | Summaries And WhatsApp Alerts | Complete - 4 plans executed |
 | 03.1 | Subscriber Fanout And Daily Digests | Complete - 4 plans executed |
-| 4 | Scheduling, Verification, And Deployment Readiness | In Progress - 1/3 plans executed |
+| 4 | Scheduling, Verification, And Deployment Readiness | In Progress - 2/3 plans executed |
 
 ## Next Step
 
-Continue `$gsd-execute-phase 4` with Plan 04-02: fixture-backed one-shot smoke verification and coverage closure.
+Continue `$gsd-execute-phase 4` with Plan 04-03: README, `.env.example`, and deployment-readiness documentation.
 
 ## Performance Metrics
 
@@ -64,3 +64,4 @@ Continue `$gsd-execute-phase 4` with Plan 04-02: fixture-backed one-shot smoke v
 | Phase 03.1 P03 | 45 min | digest formatter and fanout | 10 files |
 | Phase 03.1 P04 | 35 min | monitor/admin digest integration | 5 files |
 | Phase 4 P01 | 25 min | runtime run-once and scheduler | 10 files |
+| Phase 4 P02 | 25 min | smoke test and full regression | 1 file |
