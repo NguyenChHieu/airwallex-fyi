@@ -1,12 +1,7 @@
 package com.airwallexfyi.notifications
 
-import com.airwallexfyi.posts.PostRecord
-
 interface WhatsAppNotifier {
-    fun send(payload: WhatsAppAlertPayload): NotificationResult =
-        throw UnsupportedOperationException("send(payload) is not implemented")
-
-    fun send(post: PostRecord, payload: WhatsAppAlertPayload): NotificationResult = send(payload)
+    fun send(payload: WhatsAppAlertPayload): NotificationResult
 }
 
 data class NotificationResult(

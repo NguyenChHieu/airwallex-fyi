@@ -6,7 +6,6 @@ import com.airwallexfyi.monitor.MonitorRunResult
 import com.airwallexfyi.monitor.MonitorRunSampleUrls
 import com.airwallexfyi.monitor.MonitorRunService
 import com.airwallexfyi.monitor.MonitorRunStatus
-import com.airwallexfyi.notifications.NotificationAttemptRepository
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
@@ -45,7 +44,6 @@ class AdminControllerTest @Autowired constructor(
     private val mockMvc: MockMvc,
     private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
-    private val notificationAttemptRepository: NotificationAttemptRepository,
     private val fakeAiSummaryClient: MutableAiSummaryClient,
 ) {
     @MockitoBean
@@ -54,7 +52,6 @@ class AdminControllerTest @Autowired constructor(
 
     @BeforeEach
     fun setUp() {
-        notificationAttemptRepository.deleteAll()
         summaryRepository.deleteAll()
         postRepository.deleteAll()
         `when`(monitorRunService.runOnce()).thenReturn(completedRunResult())
@@ -86,9 +83,6 @@ class AdminControllerTest @Autowired constructor(
             .andExpect(jsonPath("$.summarizedCount").value(2))
             .andExpect(jsonPath("$.summaryFailedCount").value(0))
             .andExpect(jsonPath("$.approvalNeededCount").value(1))
-            .andExpect(jsonPath("$.alertSentCount").value(0))
-            .andExpect(jsonPath("$.dryRunAlertCount").value(0))
-            .andExpect(jsonPath("$.alertFailedCount").value(0))
             .andExpect(jsonPath("$.digestSentCount").value(1))
             .andExpect(jsonPath("$.digestNoChangeCount").value(1))
             .andExpect(jsonPath("$.digestSkippedDuplicateCount").value(1))
@@ -232,7 +226,6 @@ class AdminControllerTest @Autowired constructor(
         val updatedPost = postRepository.findByUrl(savedPost.url)
         assertThat(updatedPost?.processingStatus).isEqualTo("SUMMARY_READY")
         assertThat(summaryRepository.findByPostId(savedPost.identifier())).isNotNull
-        assertThat(notificationAttemptRepository.count()).isZero()
     }
 
     @Test
@@ -257,7 +250,6 @@ class AdminControllerTest @Autowired constructor(
         val updatedPost = postRepository.findByUrl(savedPost.url)
         assertThat(updatedPost?.processingStatus).isEqualTo("SUMMARY_FAILED")
         assertThat(summaryRepository.findByPostId(savedPost.identifier())).isNull()
-        assertThat(notificationAttemptRepository.count()).isZero()
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -293,9 +285,6 @@ class AdminControllerTest @Autowired constructor(
         summarizedCount = 2,
         summaryFailedCount = 0,
         approvalNeededCount = 1,
-        alertSentCount = 0,
-        dryRunAlertCount = 0,
-        alertFailedCount = 0,
         digestSentCount = 1,
         digestNoChangeCount = 1,
         digestSkippedDuplicateCount = 1,
@@ -355,5 +344,6 @@ class AdminControllerTest @Autowired constructor(
     private fun authorized(builder: org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder): org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder =
         builder.header(AdminTokenFilter.ADMIN_TOKEN_HEADER, "test-admin-token")
 }
+
 
 

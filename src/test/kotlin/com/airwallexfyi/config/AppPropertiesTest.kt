@@ -22,7 +22,6 @@ class AppPropertiesTest {
                 "airwallex-fyi.twilio.auth-token=test-token",
                 "airwallex-fyi.twilio.whatsapp-from=whatsapp:+15550000001",
                 "airwallex-fyi.whatsapp.to=whatsapp:+15550000002",
-                "airwallex-fyi.whatsapp.default-subscriber-display-name=Primary Subscriber",
                 "airwallex-fyi.digest.time-zone=Pacific/Auckland",
                 "airwallex-fyi.scheduler.enabled=true",
                 "airwallex-fyi.scheduler.fixed-delay-ms=120000",
@@ -41,7 +40,6 @@ class AppPropertiesTest {
                 assertThat(properties.twilio.authToken).isEqualTo("test-token")
                 assertThat(properties.twilio.whatsappFrom).isEqualTo("whatsapp:+15550000001")
                 assertThat(properties.whatsapp.to).isEqualTo("whatsapp:+15550000002")
-                assertThat(properties.whatsapp.defaultSubscriberDisplayName).isEqualTo("Primary Subscriber")
                 assertThat(properties.digest.timeZone).isEqualTo("Pacific/Auckland")
                 assertThat(properties.scheduler.enabled).isTrue()
                 assertThat(properties.scheduler.fixedDelayMs).isEqualTo(120000)
@@ -63,7 +61,6 @@ class AppPropertiesTest {
             assertThat(properties.ai.model).isEqualTo("gemini-3.5-flash")
             assertThat(properties.gemini.apiKey).isBlank()
             assertThat(properties.twilio.authToken).isBlank()
-            assertThat(properties.whatsapp.defaultSubscriberDisplayName).isEqualTo("Airwallex FYI Subscriber")
             assertThat(properties.digest.timeZone).isEqualTo("Australia/Sydney")
             assertThat(properties.source.sitemapUrl).isEqualTo("https://www.airwallex.com/global/sitemap-blog.xml")
             assertThat(properties.source.firstRunSeedLimit).isEqualTo(25)
@@ -84,3 +81,4 @@ class AppPropertiesTest {
     @EnableConfigurationProperties(AppProperties::class)
     private class TestConfig
 }
+

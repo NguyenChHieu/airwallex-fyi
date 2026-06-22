@@ -12,29 +12,25 @@ class SubscriberSeedService(
     private val subscriberChannelRepository: SubscriberChannelRepository,
 ) {
     @Transactional
-    fun seedDefaultSubscriberIfConfigured(now: Instant = Instant.now()): SubscriberSeedResult {
+    fun seedDefaultSubscriberIfConfigured(now: Instant = Instant.now()): Boolean {
         val recipient = properties.whatsapp.to.trim()
-        if (recipient.isBlank()) {
-            return SubscriberSeedResult(created = false, skippedReason = "blank-recipient")
-        }
+        if (recipient.isBlank()) return false
 
         val existingChannel = subscriberChannelRepository.findByChannelAndRecipient(
             SubscriberChannelType.WHATSAPP,
             recipient,
         )
-        if (existingChannel != null) {
-            return SubscriberSeedResult(created = false, channel = existingChannel, skippedReason = "channel-exists")
-        }
+        if (existingChannel != null) return false
 
         val subscriber = subscriberRepository.save(
             SubscriberRecord(
-                displayName = properties.whatsapp.defaultSubscriberDisplayName.ifBlank { "Airwallex FYI Subscriber" },
+                displayName = DEFAULT_DISPLAY_NAME,
                 status = SubscriberStatus.ACTIVE,
                 createdAt = now,
                 updatedAt = now,
             ),
         )
-        val channel = subscriberChannelRepository.save(
+        subscriberChannelRepository.save(
             SubscriberChannelRecord(
                 subscriberId = subscriber.identifier(),
                 channel = SubscriberChannelType.WHATSAPP,
@@ -45,13 +41,10 @@ class SubscriberSeedService(
             ),
         )
 
-        return SubscriberSeedResult(created = true, subscriber = subscriber, channel = channel)
+        return true
+    }
+
+    private companion object {
+        const val DEFAULT_DISPLAY_NAME = "Airwallex FYI Subscriber"
     }
 }
-
-data class SubscriberSeedResult(
-    val created: Boolean,
-    val subscriber: SubscriberRecord? = null,
-    val channel: SubscriberChannelRecord? = null,
-    val skippedReason: String? = null,
-)

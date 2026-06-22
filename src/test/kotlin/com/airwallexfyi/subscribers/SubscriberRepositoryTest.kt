@@ -18,7 +18,6 @@ import org.springframework.dao.DataIntegrityViolationException
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.flyway.enabled=true",
         "airwallex-fyi.whatsapp.to=whatsapp:+15550000002",
-        "airwallex-fyi.whatsapp.default-subscriber-display-name=Configured Subscriber",
     ],
 )
 class SubscriberRepositoryTest @Autowired constructor(
@@ -104,14 +103,16 @@ class SubscriberRepositoryTest @Autowired constructor(
     fun `seed service creates default subscriber channel once from config`() {
         val now = Instant.parse("2026-06-22T01:00:00Z")
 
-        val result = subscriberSeedService.seedDefaultSubscriberIfConfigured(now)
+        val created = subscriberSeedService.seedDefaultSubscriberIfConfigured(now)
 
-        assertThat(result.created).isTrue()
+        assertThat(created).isTrue()
         assertThat(subscriberRepository.count()).isEqualTo(1)
         assertThat(subscriberChannelRepository.count()).isEqualTo(1)
-        assertThat(result.subscriber?.displayName).isEqualTo("Configured Subscriber")
-        assertThat(result.channel?.recipient).isEqualTo("whatsapp:+15550000002")
-        assertThat(result.channel?.status).isEqualTo(SubscriberStatus.ACTIVE)
+        val channel = subscriberChannelRepository.findByChannelAndRecipient(
+            SubscriberChannelType.WHATSAPP,
+            "whatsapp:+15550000002",
+        )
+        assertThat(channel?.status).isEqualTo(SubscriberStatus.ACTIVE)
     }
 
     @Test
@@ -119,10 +120,8 @@ class SubscriberRepositoryTest @Autowired constructor(
         val first = subscriberSeedService.seedDefaultSubscriberIfConfigured(Instant.parse("2026-06-22T01:00:00Z"))
         val second = subscriberSeedService.seedDefaultSubscriberIfConfigured(Instant.parse("2026-06-23T01:00:00Z"))
 
-        assertThat(first.created).isTrue()
-        assertThat(second.created).isFalse()
-        assertThat(second.skippedReason).isEqualTo("channel-exists")
-        assertThat(second.channel?.identifier()).isEqualTo(first.channel?.identifier())
+        assertThat(first).isTrue()
+        assertThat(second).isFalse()
         assertThat(subscriberRepository.count()).isEqualTo(1)
         assertThat(subscriberChannelRepository.count()).isEqualTo(1)
     }
@@ -135,11 +134,12 @@ class SubscriberRepositoryTest @Autowired constructor(
             subscriberChannelRepository,
         )
 
-        val result = blankSeedService.seedDefaultSubscriberIfConfigured()
+        val created = blankSeedService.seedDefaultSubscriberIfConfigured()
 
-        assertThat(result.created).isFalse()
-        assertThat(result.skippedReason).isEqualTo("blank-recipient")
+        assertThat(created).isFalse()
         assertThat(subscriberRepository.count()).isZero()
         assertThat(subscriberChannelRepository.count()).isZero()
     }
 }
+
+

@@ -122,9 +122,6 @@ private class MonitorRunAccumulator(
     private var failedCount = 0
     private var summarizedCount = 0
     private var summaryFailedCount = 0
-    private var alertSentCount = 0
-    private var dryRunAlertCount = 0
-    private var alertFailedCount = 0
     private var digestSentCount = 0
     private var digestNoChangeCount = 0
     private var digestSkippedDuplicateCount = 0
@@ -201,7 +198,7 @@ private class MonitorRunAccumulator(
     }
 
     fun toResult(): MonitorRunResult {
-        val failureTotal = failedCount + summaryFailedCount + alertFailedCount + digestFailedCount
+        val failureTotal = failedCount + summaryFailedCount + digestFailedCount
         val status = when {
             failureTotal == 0 -> MonitorRunStatus.COMPLETED
             seededCount + newCount + updatedCount + skippedCount + summarizedCount + approvalNeededCount + digestSentCount + digestNoChangeCount + digestSkippedDuplicateCount > 0 -> MonitorRunStatus.PARTIAL_FAILURE
@@ -225,9 +222,6 @@ private class MonitorRunAccumulator(
             summarizedCount = summarizedCount,
             summaryFailedCount = summaryFailedCount,
             approvalNeededCount = approvalNeededCount,
-            alertSentCount = alertSentCount,
-            dryRunAlertCount = dryRunAlertCount,
-            alertFailedCount = alertFailedCount,
             digestSentCount = digestSentCount,
             digestNoChangeCount = digestNoChangeCount,
             digestSkippedDuplicateCount = digestSkippedDuplicateCount,
@@ -265,3 +259,4 @@ private fun Throwable.shortReason(): String =
         ?: javaClass.simpleName
 
 private const val SAMPLE_LIMIT = 5
+

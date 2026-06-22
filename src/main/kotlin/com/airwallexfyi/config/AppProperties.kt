@@ -35,7 +35,6 @@ data class AppProperties(
 
     data class WhatsApp(
         val to: String = "",
-        val defaultSubscriberDisplayName: String = "Airwallex FYI Subscriber",
     )
 
     data class Digest(

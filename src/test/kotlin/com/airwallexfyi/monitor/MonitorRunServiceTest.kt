@@ -146,8 +146,6 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.newCount).isEqualTo(1)
         assertThat(result.summarizedCount).isEqualTo(1)
         assertThat(result.digestSentCount).isEqualTo(1)
-        assertThat(result.dryRunAlertCount).isZero()
-        assertThat(result.alertSentCount).isZero()
         assertThat(result.summaryFailedCount).isZero()
         assertThat(result.samplePayloads.single()).contains("Airwallex FYI -")
         assertThat(result.samplePayloads.single()).contains("Link: $newUrl")
@@ -174,7 +172,6 @@ class MonitorRunServiceTest @Autowired constructor(
         val result = service.runOnce()
 
         assertThat(result.digestSentCount).isEqualTo(1)
-        assertThat(result.dryRunAlertCount).isZero()
         assertThat(result.twilioCallsTriggered).isTrue()
         assertThat(postRepository.findByUrl(newUrl)?.processingStatus).isEqualTo(ProcessingStatus.SUMMARY_READY.name)
     }
@@ -538,3 +535,4 @@ class MonitorRunServiceTest @Autowired constructor(
         }
     }
 }
+
