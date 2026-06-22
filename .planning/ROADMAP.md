@@ -95,6 +95,14 @@ Cross-cutting constraints:
 4. `.env.example` documents expected settings without secrets.
 5. Final smoke test demonstrates a dry-run check against fixture or mocked Airwallex data.
 
+**Plans:** 3 plans
+
+Plans:
+
+- [x] 04-01 Runtime Run Modes (Wave 1)
+- [ ] 04-02 Fixture-Backed Smoke And Coverage Closure (Wave 2, blocked on 04-01)
+- [ ] 04-03 Docs, Env, And Deployment Readiness (Wave 3, blocked on 04-01 and 04-02)
+
 ## Future Phases
 
 - Slack notifications and weekly or richer digest mode.

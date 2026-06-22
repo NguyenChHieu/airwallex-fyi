@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute Phase 4
-last_updated: "2026-06-22T09:20:09.742Z"
+status: Executing Phase 4
+last_updated: "2026-06-22T11:48:42Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 18
-  completed_plans: 15
-  percent: 80
+  completed_plans: 16
+  percent: 84
 ---
 
 # State: Airwallex FYI
@@ -26,10 +26,10 @@ See: `.planning/PROJECT.md` (updated 2026-06-21)
 - Project initialized: 2026-06-20
 - Current Phase: 4
 - Current Phase Name: Scheduling, Verification, And Deployment Readiness
-- Current Plan: 3 plans ready
-- Last Activity: 2026-06-22T09:20:09.742Z
-- Last Activity Description: Phase 4 planned with 3 implementation plans; ready for execution
-- Current status: Ready to execute Phase 4
+- Current Plan: 04-02 Fixture-Backed Smoke And Coverage Closure
+- Last Activity: 2026-06-22T11:48:42Z
+- Last Activity Description: Plan 04-01 completed: runtime run-once mode and opt-in scheduler added
+- Current status: Executing Phase 4 - 1/3 plans complete
 - Planning mode: vertical MVP
 - GSD config: `.planning/config.json`
 
@@ -41,11 +41,11 @@ See: `.planning/PROJECT.md` (updated 2026-06-21)
 | 2 | Airwallex Source Monitoring | Complete - 4 plans executed |
 | 3 | Summaries And WhatsApp Alerts | Complete - 4 plans executed |
 | 03.1 | Subscriber Fanout And Daily Digests | Complete - 4 plans executed |
-| 4 | Scheduling, Verification, And Deployment Readiness | Planned - 3 plans ready |
+| 4 | Scheduling, Verification, And Deployment Readiness | In Progress - 1/3 plans executed |
 
 ## Next Step
 
-Run `$gsd-execute-phase 4` to execute the 3 Phase 4 plans for runtime scheduling/run-once support, fixture-backed smoke verification, and docs/env readiness.
+Continue `$gsd-execute-phase 4` with Plan 04-02: fixture-backed one-shot smoke verification and coverage closure.
 
 ## Performance Metrics
 
@@ -63,3 +63,4 @@ Run `$gsd-execute-phase 4` to execute the 3 Phase 4 plans for runtime scheduling
 | Phase 03.1 P02 | 30 min | digest delivery persistence | 8 files |
 | Phase 03.1 P03 | 45 min | digest formatter and fanout | 10 files |
 | Phase 03.1 P04 | 35 min | monitor/admin digest integration | 5 files |
+| Phase 4 P01 | 25 min | runtime run-once and scheduler | 10 files |
