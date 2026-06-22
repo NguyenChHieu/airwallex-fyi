@@ -41,11 +41,11 @@
 
 - [x] **OPS-01**: Service reads database, Gemini, Twilio, WhatsApp recipient, scheduler, dry-run, and admin token settings from environment variables.
 - [x] **OPS-02**: Service exposes protected admin endpoints for health, recent posts, and manual run-once.
-- [ ] **OPS-03**: Service can run continuously on a schedule and can also execute a single check with `--run-once`.
+- [x] **OPS-03**: Service can run continuously on a schedule and can also execute a single check with `--run-once`.
 
 ### Quality
 
-- [ ] **QUAL-01**: Automated tests cover sitemap filtering, article extraction, first-run seed behavior, dedupe, dry-run notification, and new-post notification flow.
+- [x] **QUAL-01**: Automated tests cover sitemap filtering, article extraction, first-run seed behavior, dedupe, dry-run notification, and new-post notification flow.
 
 ## v2 Requirements
 
@@ -102,8 +102,8 @@
 | SUB-03 | Phase 03.1 | Pending |
 | DIGEST-01 | Phase 03.1 | Pending |
 | DIGEST-02 | Phase 03.1 | Pending |
-| OPS-03 | Phase 4 | Pending |
-| QUAL-01 | Phase 4 | Pending |
+| OPS-03 | Phase 4 | Complete |
+| QUAL-01 | Phase 4 | Complete |
 | NOTIF-03 | Future | Pending |
 | NOTIF-04 | Future | Pending |
 | NOTIF-05 | Future | Pending |
