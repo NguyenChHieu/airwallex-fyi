@@ -65,6 +65,21 @@ Airwallex FYI will be built as a vertical MVP across five planning phases. Each 
 4. If no new posts exist for the day, subscribers receive one no-change status message per service-local day.
 5. Delivery records are per subscriber/channel so one failed recipient does not block others and duplicate sends are prevented.
 
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 03.1-01 Subscriber and Channel Persistence (Wave 1)
+- [ ] 03.1-02 Digest Delivery Persistence and Eligibility Contract (Wave 2, blocked on 03.1-01)
+- [ ] 03.1-03 Digest Formatting and Subscriber Fanout Service (Wave 3, blocked on 03.1-01 and 03.1-02)
+- [ ] 03.1-04 Monitor and Admin Digest Integration (Wave 4, blocked on 03.1-01, 03.1-02, and 03.1-03)
+
+Cross-cutting constraints:
+
+- One combined daily digest/status message per active subscriber channel per service-local date.
+- Posts and summaries remain canonical service-owned data; subscriber/channel delivery state is separate.
+- No-change messages are subscriber-facing; approval-needed items remain admin/run-result only.
+
 ### Phase 4: Scheduling, Verification, And Deployment Readiness
 
 **Goal:** Make the monitor safe to run unattended and easy to verify.
