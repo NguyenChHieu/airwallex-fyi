@@ -4,6 +4,7 @@ import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -177,6 +178,112 @@ class PersistenceSchemaTest @Autowired constructor(
     }
 
     @Test
+    fun `digest delivery tables expose phase three one columns`() {
+        assertThat(columnsFor("digest_deliveries")).containsAll(
+            listOf(
+                "id",
+                "subscriber_channel_id",
+                "local_date",
+                "message_type",
+                "status",
+                "recipient",
+                "channel",
+                "payload_preview",
+                "provider_message_id",
+                "error_message",
+                "attempted_at",
+                "sent_at",
+                "created_at",
+                "updated_at",
+            ),
+        )
+        assertThat(columnsFor("digest_delivery_posts")).containsAll(
+            listOf("id", "digest_delivery_id", "post_id", "summary_id", "display_order", "created_at"),
+        )
+        assertThat(uniqueConstraintsFor("digest_deliveries")).contains("uq_digest_deliveries_channel_date")
+        assertThat(uniqueConstraintsFor("digest_delivery_posts")).contains("uq_digest_delivery_posts_delivery_post")
+        assertThat(foreignKeysFor("digest_deliveries")).contains("fk_digest_deliveries_subscriber_channel")
+        assertThat(foreignKeysFor("digest_delivery_posts")).containsAll(
+            listOf(
+                "fk_digest_delivery_posts_delivery",
+                "fk_digest_delivery_posts_post",
+                "fk_digest_delivery_posts_summary",
+            ),
+        )
+    }
+
+    @Test
+    fun `digest schema rejects duplicate daily deliveries and duplicate post links`() {
+        val subscriberId = insertSubscriber("Digest Subscriber")
+        val channelId = insertSubscriberChannel(subscriberId, "whatsapp:+1777${System.nanoTime()}")
+        val deliveryId = UUID.randomUUID()
+        val localDate = LocalDate.of(2026, 6, 22)
+        val now = Instant.parse("2026-06-22T00:00:00Z")
+
+        insertDigestDelivery(deliveryId, channelId, localDate, now)
+
+        assertThatThrownBy {
+            insertDigestDelivery(UUID.randomUUID(), channelId, localDate, now.plusSeconds(60))
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
+
+        assertThatThrownBy {
+            insertDigestDelivery(UUID.randomUUID(), UUID.randomUUID(), localDate.plusDays(1), now.plusSeconds(120))
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
+
+        val post = postRepository.save(
+            PostRecord(
+                url = "https://www.airwallex.com/global/blog/digest-link-${System.nanoTime()}",
+                sourceType = "BLOG",
+                processingStatus = ProcessingStatus.SUMMARY_READY.name,
+            ),
+        )
+        val summaryId = UUID.randomUUID()
+        jdbcTemplate.update(
+            """
+            INSERT INTO summaries (id, post_id, headline, summary_json, why_it_matters, tags_json, model, prompt_version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            summaryId,
+            post.identifier(),
+            "Digest headline",
+            "{}",
+            "Useful update",
+            "[]",
+            "test-model",
+            "test-prompt",
+            now,
+            now,
+        )
+        jdbcTemplate.update(
+            """
+            INSERT INTO digest_delivery_posts (id, digest_delivery_id, post_id, summary_id, display_order, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            UUID.randomUUID(),
+            deliveryId,
+            post.identifier(),
+            summaryId,
+            0,
+            now,
+        )
+
+        assertThatThrownBy {
+            jdbcTemplate.update(
+                """
+                INSERT INTO digest_delivery_posts (id, digest_delivery_id, post_id, summary_id, display_order, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+                UUID.randomUUID(),
+                deliveryId,
+                post.identifier(),
+                summaryId,
+                1,
+                now,
+            )
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
+    }
+
+    @Test
     fun `post records can use every lifecycle processing status`() {
         ProcessingStatus.entries.forEach { status ->
             val post = postRepository.save(
@@ -190,6 +297,66 @@ class PersistenceSchemaTest @Autowired constructor(
             assertThat(postRepository.findByUrl(post.url)?.processingStatus).isEqualTo(status.name)
         }
         assertThat(ProcessingStatus.valueOf("APPROVAL_NEEDED")).isEqualTo(ProcessingStatus.APPROVAL_NEEDED)
+    }
+
+    private fun insertSubscriber(displayName: String): UUID {
+        val subscriberId = UUID.randomUUID()
+        jdbcTemplate.update(
+            """
+            INSERT INTO subscribers (id, display_name, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """.trimIndent(),
+            subscriberId,
+            displayName,
+            "ACTIVE",
+            Instant.parse("2026-06-22T00:00:00Z"),
+            Instant.parse("2026-06-22T00:00:00Z"),
+        )
+        return subscriberId
+    }
+
+    private fun insertSubscriberChannel(subscriberId: UUID, recipient: String): UUID {
+        val channelId = UUID.randomUUID()
+        jdbcTemplate.update(
+            """
+            INSERT INTO subscriber_channels (id, subscriber_id, channel, recipient, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            channelId,
+            subscriberId,
+            "whatsapp",
+            recipient,
+            "ACTIVE",
+            Instant.parse("2026-06-22T00:00:00Z"),
+            Instant.parse("2026-06-22T00:00:00Z"),
+        )
+        return channelId
+    }
+
+    private fun insertDigestDelivery(deliveryId: UUID, channelId: UUID, localDate: LocalDate, attemptedAt: Instant) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO digest_deliveries (
+                id, subscriber_channel_id, local_date, message_type, status, recipient, channel,
+                payload_preview, provider_message_id, error_message, attempted_at, sent_at, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            deliveryId,
+            channelId,
+            localDate,
+            "NO_CHANGES",
+            "DRY_RUN",
+            "whatsapp:+17770000000",
+            "whatsapp",
+            "Airwallex FYI: No new public Blog or Newsroom updates today.",
+            null,
+            null,
+            attemptedAt,
+            attemptedAt,
+            attemptedAt,
+            attemptedAt,
+        )
     }
 
     private fun columnsFor(table: String): Set<String> = jdbcTemplate.queryForList(
