@@ -69,10 +69,10 @@ Airwallex FYI will be built as a vertical MVP across five planning phases. Each 
 
 Plans:
 
-- [ ] 03.1-01 Subscriber and Channel Persistence (Wave 1)
-- [ ] 03.1-02 Digest Delivery Persistence and Eligibility Contract (Wave 2, blocked on 03.1-01)
-- [ ] 03.1-03 Digest Formatting and Subscriber Fanout Service (Wave 3, blocked on 03.1-01 and 03.1-02)
-- [ ] 03.1-04 Monitor and Admin Digest Integration (Wave 4, blocked on 03.1-01, 03.1-02, and 03.1-03)
+- [x] 03.1-01 Subscriber and Channel Persistence (Wave 1)
+- [x] 03.1-02 Digest Delivery Persistence and Eligibility Contract (Wave 2, blocked on 03.1-01)
+- [x] 03.1-03 Digest Formatting and Subscriber Fanout Service (Wave 3, blocked on 03.1-01 and 03.1-02)
+- [x] 03.1-04 Monitor and Admin Digest Integration (Wave 4, blocked on 03.1-01, 03.1-02, and 03.1-03)
 
 Cross-cutting constraints:
 
@@ -105,3 +105,4 @@ Cross-cutting constraints:
 
 ---
 *Roadmap created: 2026-06-20*
+
