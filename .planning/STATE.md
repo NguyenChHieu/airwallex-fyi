@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready for Phase 4 discussion
-last_updated: "2026-06-22T11:20:00+10:00"
+last_updated: "2026-06-22T08:52:16.206Z"
 progress:
   total_phases: 5
   completed_phases: 4
