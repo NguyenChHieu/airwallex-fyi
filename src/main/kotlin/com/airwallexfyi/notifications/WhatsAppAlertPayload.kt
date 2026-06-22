@@ -4,6 +4,6 @@ data class WhatsAppAlertPayload(
     val channel: String,
     val recipient: String,
     val body: String,
-    val sourceUrl: String,
+    val sourceUrl: String? = null,
     val preview: String,
 )

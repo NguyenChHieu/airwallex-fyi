@@ -1,8 +1,6 @@
 package com.airwallexfyi.notifications
 
 import com.airwallexfyi.config.AppProperties
-import com.airwallexfyi.posts.PostRecord
-import java.time.Instant
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -16,59 +14,30 @@ import tools.jackson.databind.ObjectMapper
 @ConditionalOnProperty(prefix = "airwallex-fyi", name = ["dry-run"], havingValue = "false")
 class TwilioWhatsAppNotifier(
     private val properties: AppProperties,
-    private val notificationAttemptRepository: NotificationAttemptRepository,
     private val transport: TwilioTransport,
 ) : WhatsAppNotifier {
-    override fun send(post: PostRecord, payload: WhatsAppAlertPayload): NotificationResult {
-        val now = Instant.now()
-        return try {
-            val response = transport.sendMessage(
-                accountSid = properties.twilio.accountSid,
-                authToken = properties.twilio.authToken,
-                from = properties.twilio.whatsappFrom,
-                to = payload.recipient,
-                body = payload.body,
-            )
-            notificationAttemptRepository.save(
-                NotificationAttemptRecord(
-                    postId = post.identifier(),
-                    channel = payload.channel,
-                    recipient = payload.recipient,
-                    status = NotificationStatus.SENT.name,
-                    providerMessageId = response.sid,
-                    attemptedAt = now,
-                    sentAt = Instant.now(),
-                    createdAt = now,
-                    updatedAt = Instant.now(),
-                ),
-            )
-            NotificationResult(
-                status = NotificationStatus.SENT,
-                payloadPreview = payload.preview,
-                providerMessageId = response.sid,
-                twilioCalled = true,
-            )
-        } catch (ex: RuntimeException) {
-            val reason = ex.sanitizedReason(properties.twilio.authToken)
-            notificationAttemptRepository.save(
-                NotificationAttemptRecord(
-                    postId = post.identifier(),
-                    channel = payload.channel,
-                    recipient = payload.recipient,
-                    status = NotificationStatus.FAILED.name,
-                    errorMessage = reason,
-                    attemptedAt = now,
-                    createdAt = now,
-                    updatedAt = Instant.now(),
-                ),
-            )
-            NotificationResult(
-                status = NotificationStatus.FAILED,
-                payloadPreview = payload.preview,
-                errorMessage = reason,
-                twilioCalled = true,
-            )
-        }
+    override fun send(payload: WhatsAppAlertPayload): NotificationResult = try {
+        val response = transport.sendMessage(
+            accountSid = properties.twilio.accountSid,
+            authToken = properties.twilio.authToken,
+            from = properties.twilio.whatsappFrom,
+            to = payload.recipient,
+            body = payload.body,
+        )
+        NotificationResult(
+            status = NotificationStatus.SENT,
+            payloadPreview = payload.preview,
+            providerMessageId = response.sid,
+            twilioCalled = true,
+        )
+    } catch (ex: RuntimeException) {
+        val reason = ex.sanitizedReason(properties.twilio.authToken)
+        NotificationResult(
+            status = NotificationStatus.FAILED,
+            payloadPreview = payload.preview,
+            errorMessage = reason,
+            twilioCalled = true,
+        )
     }
 
     private fun Throwable.sanitizedReason(secret: String): String {
