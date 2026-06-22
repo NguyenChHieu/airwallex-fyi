@@ -5,9 +5,15 @@ import com.airwallexfyi.articles.ContentHashService
 import com.airwallexfyi.articles.ExtractedArticle
 import com.airwallexfyi.articles.RichTextFlattener
 import com.airwallexfyi.config.AppProperties
+import com.airwallexfyi.digests.DailyDigestFormatter
+import com.airwallexfyi.digests.DailyDigestService
+import com.airwallexfyi.digests.DigestDeliveryPostRepository
+import com.airwallexfyi.digests.DigestDeliveryRepository
+import com.airwallexfyi.digests.DigestDeliveryStatus
+import com.airwallexfyi.digests.DigestEligibilityService
+import com.airwallexfyi.digests.DigestMessageType
 import com.airwallexfyi.notifications.NotificationResult
 import com.airwallexfyi.notifications.NotificationStatus
-import com.airwallexfyi.notifications.WhatsAppAlertFormatter
 import com.airwallexfyi.notifications.WhatsAppAlertPayload
 import com.airwallexfyi.notifications.WhatsAppNotifier
 import com.airwallexfyi.posts.PostRecord
@@ -16,6 +22,13 @@ import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.posts.SourceType
 import com.airwallexfyi.sources.AirwallexHttpClient
 import com.airwallexfyi.sources.AirwallexSourceDiscoveryService
+import com.airwallexfyi.subscribers.SubscriberChannelRecord
+import com.airwallexfyi.subscribers.SubscriberChannelRepository
+import com.airwallexfyi.subscribers.SubscriberChannelType
+import com.airwallexfyi.subscribers.SubscriberRecord
+import com.airwallexfyi.subscribers.SubscriberRepository
+import com.airwallexfyi.subscribers.SubscriberSeedService
+import com.airwallexfyi.subscribers.SubscriberStatus
 import com.airwallexfyi.summaries.AiSummaryClient
 import com.airwallexfyi.summaries.ArticleSummaryService
 import com.airwallexfyi.summaries.SummaryGenerationException
@@ -23,6 +36,7 @@ import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
 import com.airwallexfyi.summaries.StructuredSummary
 import java.time.Instant
+import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -41,17 +55,25 @@ class MonitorRunServiceTest @Autowired constructor(
     private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
     private val postStateService: PostStateService,
+    private val subscriberRepository: SubscriberRepository,
+    private val subscriberChannelRepository: SubscriberChannelRepository,
+    private val digestDeliveryRepository: DigestDeliveryRepository,
+    private val digestDeliveryPostRepository: DigestDeliveryPostRepository,
     private val objectMapper: ObjectMapper,
     private val jdbcTemplate: NamedParameterJdbcTemplate,
 ) {
     @BeforeEach
     fun deleteRows() {
+        digestDeliveryPostRepository.deleteAll()
+        digestDeliveryRepository.deleteAll()
         summaryRepository.deleteAll()
         postRepository.deleteAll()
+        subscriberChannelRepository.deleteAll()
+        subscriberRepository.deleteAll()
     }
 
     @Test
-    fun `run once seeds discovered articles on first run without ai or notifier`() {
+    fun `run once seeds discovered articles and sends no change digest without ai`() {
         val urls = listOf(blogUrl("seed-one"), blogUrl("seed-two"))
         val aiClient = FakeAiSummaryClient(summary())
         val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
@@ -69,26 +91,27 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.discoveredCount).isEqualTo(2)
         assertThat(result.seededCount).isEqualTo(2)
         assertThat(result.newCount).isZero()
-        assertThat(result.updatedCount).isZero()
-        assertThat(result.failedCount).isZero()
         assertThat(result.summarizedCount).isZero()
         assertThat(result.approvalNeededCount).isEqualTo(2)
-        assertThat(result.sampleApprovalNeeded).allSatisfy { item -> assertThat(item.reason).isEqualTo("missing_summary") }
+        assertThat(result.digestNoChangeCount).isEqualTo(1)
+        assertThat(result.digestSentCount).isZero()
+        assertThat(result.samplePayloads.single()).isEqualTo(DailyDigestFormatter.NO_CHANGES_TEXT)
         assertThat(result.externalCallsTriggered).isFalse()
         assertThat(result.twilioCallsTriggered).isFalse()
-        assertThat(result.sampleUrls.seeded).containsExactlyElementsOf(urls.asReversed())
         assertThat(aiClient.calls).isZero()
-        assertThat(notifier.calls).isZero()
-        assertThat(postRepository.count()).isEqualTo(2)
+        assertThat(notifier.calls).isEqualTo(1)
+        assertThat(subscriberChannelRepository.count()).isEqualTo(1)
         assertThat(postRepository.findAll().map { it.processingStatus }.toSet()).containsExactly(ProcessingStatus.APPROVAL_NEEDED.name)
     }
 
     @Test
-    fun `run once skips known unchanged urls on repeat run`() {
+    fun `run once skips known unchanged urls and duplicate same day digest on repeat run`() {
         val urls = listOf(blogUrl("repeat-one"), blogUrl("repeat-two"))
+        val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
         val service = monitorService(
             sitemapXml = sitemap(urls),
             articleBodies = urls.associateWith { fixture("/fixtures/airwallex/blog-agentos.html") },
+            notifier = notifier,
         )
         service.runOnce()
 
@@ -99,12 +122,13 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(second.newCount).isZero()
         assertThat(second.updatedCount).isZero()
         assertThat(second.skippedCount).isEqualTo(2)
-        assertThat(second.approvalNeededCount).isEqualTo(2)
+        assertThat(second.digestSkippedDuplicateCount).isEqualTo(1)
+        assertThat(notifier.calls).isEqualTo(1)
         assertThat(postRepository.count()).isEqualTo(2)
     }
 
     @Test
-    fun `second run with a new url summarizes and dry run notifies`() {
+    fun `second run with a new url summarizes once and sends one digest`() {
         saveKnownPost(blogUrl("already-known"))
         val newUrl = blogUrl("fresh-update")
         val aiClient = FakeAiSummaryClient(summary())
@@ -121,21 +145,23 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.status).isEqualTo(MonitorRunStatus.COMPLETED)
         assertThat(result.newCount).isEqualTo(1)
         assertThat(result.summarizedCount).isEqualTo(1)
-        assertThat(result.dryRunAlertCount).isEqualTo(1)
+        assertThat(result.digestSentCount).isEqualTo(1)
+        assertThat(result.dryRunAlertCount).isZero()
         assertThat(result.alertSentCount).isZero()
         assertThat(result.summaryFailedCount).isZero()
-        assertThat(result.samplePayloads.single()).contains("Airwallex FYI: Airwallex updates its platform")
+        assertThat(result.samplePayloads.single()).contains("Airwallex FYI -")
+        assertThat(result.samplePayloads.single()).contains("Link: $newUrl")
         assertThat(result.externalCallsTriggered).isTrue()
         assertThat(result.twilioCallsTriggered).isFalse()
         assertThat(aiClient.calls).isEqualTo(1)
         assertThat(notifier.calls).isEqualTo(1)
         val post = requireNotNull(postRepository.findByUrl(newUrl))
-        assertThat(post.processingStatus).isEqualTo(ProcessingStatus.DRY_RUN_READY.name)
+        assertThat(post.processingStatus).isEqualTo(ProcessingStatus.SUMMARY_READY.name)
         assertThat(summaryRepository.findByPostId(post.identifier())).isNotNull
     }
 
     @Test
-    fun `live notifier success records alert sent and twilio call flag`() {
+    fun `live notifier success records digest sent and twilio call flag`() {
         saveKnownPost(blogUrl("known-before-live"))
         val newUrl = blogUrl("live-update")
         val notifier = FakeWhatsAppNotifier(NotificationStatus.SENT, twilioCalled = true)
@@ -147,14 +173,14 @@ class MonitorRunServiceTest @Autowired constructor(
 
         val result = service.runOnce()
 
-        assertThat(result.alertSentCount).isEqualTo(1)
+        assertThat(result.digestSentCount).isEqualTo(1)
         assertThat(result.dryRunAlertCount).isZero()
         assertThat(result.twilioCallsTriggered).isTrue()
-        assertThat(postRepository.findByUrl(newUrl)?.processingStatus).isEqualTo(ProcessingStatus.ALERT_SENT.name)
+        assertThat(postRepository.findByUrl(newUrl)?.processingStatus).isEqualTo(ProcessingStatus.SUMMARY_READY.name)
     }
 
     @Test
-    fun `summary failure blocks notifier and marks summary failed`() {
+    fun `summary failure is admin visible and sends no change digest`() {
         saveKnownPost(blogUrl("known-before-failure"))
         val newUrl = blogUrl("summary-failure")
         val aiClient = FakeAiSummaryClient(failure = SummaryGenerationException("invalid json"))
@@ -170,18 +196,18 @@ class MonitorRunServiceTest @Autowired constructor(
 
         assertThat(result.status).isEqualTo(MonitorRunStatus.PARTIAL_FAILURE)
         assertThat(result.summaryFailedCount).isEqualTo(1)
-        assertThat(result.dryRunAlertCount).isZero()
+        assertThat(result.digestNoChangeCount).isEqualTo(1)
         assertThat(result.sampleErrors.single().reason).contains("Summary failed: invalid json")
-        assertThat(notifier.calls).isZero()
+        assertThat(notifier.calls).isEqualTo(1)
         val post = requireNotNull(postRepository.findByUrl(newUrl))
         assertThat(post.processingStatus).isEqualTo(ProcessingStatus.SUMMARY_FAILED.name)
         assertThat(summaryRepository.findByPostId(post.identifier())).isNull()
     }
 
     @Test
-    fun `notifier failure marks alert failed without retry`() {
-        saveKnownPost(blogUrl("known-before-alert-failure"))
-        val newUrl = blogUrl("alert-failure")
+    fun `digest failure is recorded without changing canonical post status`() {
+        saveKnownPost(blogUrl("known-before-digest-failure"))
+        val newUrl = blogUrl("digest-failure")
         val notifier = FakeWhatsAppNotifier(NotificationStatus.FAILED, errorMessage = "twilio down", twilioCalled = true)
         val service = monitorService(
             sitemapXml = sitemap(listOf(newUrl)),
@@ -193,15 +219,80 @@ class MonitorRunServiceTest @Autowired constructor(
 
         assertThat(result.status).isEqualTo(MonitorRunStatus.PARTIAL_FAILURE)
         assertThat(result.summarizedCount).isEqualTo(1)
-        assertThat(result.alertFailedCount).isEqualTo(1)
-        assertThat(result.sampleErrors.single().reason).contains("Alert failed: twilio down")
+        assertThat(result.digestFailedCount).isEqualTo(1)
+        assertThat(result.sampleDigestErrors.single()).contains("twilio down")
         assertThat(result.twilioCallsTriggered).isTrue()
         assertThat(notifier.calls).isEqualTo(1)
-        assertThat(postRepository.findByUrl(newUrl)?.processingStatus).isEqualTo(ProcessingStatus.ALERT_FAILED.name)
+        assertThat(postRepository.findByUrl(newUrl)?.processingStatus).isEqualTo(ProcessingStatus.SUMMARY_READY.name)
     }
 
     @Test
-    fun `known url content hash change becomes approval needed without duplicate alert`() {
+    fun `multiple new posts become one combined digest message`() {
+        saveKnownPost(blogUrl("known-before-multi"))
+        val first = blogUrl("multi-one")
+        val second = blogUrl("multi-two")
+        val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
+        val service = monitorService(
+            sitemapXml = sitemap(listOf(first, second)),
+            articleBodies = mapOf(
+                first to fixture("/fixtures/airwallex/blog-agentos.html"),
+                second to fixture("/fixtures/airwallex/blog-agentos.html"),
+            ),
+            notifier = notifier,
+        )
+
+        val result = service.runOnce()
+
+        val channel = requireNotNull(
+            subscriberChannelRepository.findByChannelAndRecipient(SubscriberChannelType.WHATSAPP, testProperties().whatsapp.to),
+        )
+        val delivery = requireNotNull(
+            digestDeliveryRepository.findBySubscriberChannelIdAndLocalDate(channel.identifier(), LocalDate.now()),
+        )
+        assertThat(result.newCount).isEqualTo(2)
+        assertThat(result.summarizedCount).isEqualTo(2)
+        assertThat(result.digestSentCount).isEqualTo(1)
+        assertThat(notifier.calls).isEqualTo(1)
+        assertThat(notifier.payloads.single().body).contains("Link: $first")
+        assertThat(notifier.payloads.single().body).contains("Link: $second")
+        assertThat(digestDeliveryPostRepository.findByDigestDeliveryIdOrderByDisplayOrderAsc(delivery.identifier())).hasSize(2)
+    }
+
+    @Test
+    fun `one subscriber channel failure does not block another subscriber`() {
+        saveKnownPost(blogUrl("known-before-subscriber-failure"))
+        val secondChannel = createChannel("whatsapp:+15550000003")
+        val newUrl = blogUrl("subscriber-failure")
+        val notifier = FakeWhatsAppNotifier(
+            status = NotificationStatus.DRY_RUN,
+            failingRecipients = setOf(testProperties().whatsapp.to),
+        )
+        val service = monitorService(
+            sitemapXml = sitemap(listOf(newUrl)),
+            articleBodies = mapOf(newUrl to fixture("/fixtures/airwallex/blog-agentos.html")),
+            notifier = notifier,
+        )
+
+        val result = service.runOnce()
+
+        val defaultChannel = requireNotNull(
+            subscriberChannelRepository.findByChannelAndRecipient(SubscriberChannelType.WHATSAPP, testProperties().whatsapp.to),
+        )
+        val failedDelivery = requireNotNull(
+            digestDeliveryRepository.findBySubscriberChannelIdAndLocalDate(defaultChannel.identifier(), LocalDate.now()),
+        )
+        val successfulDelivery = requireNotNull(
+            digestDeliveryRepository.findBySubscriberChannelIdAndLocalDate(secondChannel.identifier(), LocalDate.now()),
+        )
+        assertThat(result.digestFailedCount).isEqualTo(1)
+        assertThat(result.digestSentCount).isEqualTo(1)
+        assertThat(notifier.calls).isEqualTo(2)
+        assertThat(failedDelivery.status).isEqualTo(DigestDeliveryStatus.FAILED)
+        assertThat(successfulDelivery.status).isEqualTo(DigestDeliveryStatus.DRY_RUN)
+    }
+
+    @Test
+    fun `known url content hash change becomes approval needed and stays out of digest`() {
         val url = blogUrl("changed-known")
         val existing = saveKnownPost(url, contentHash = "old-hash", sitemapLastmod = Instant.parse("2026-06-20T00:00:00Z"))
         summaryRepository.save(SummaryRecord.from(existing.identifier(), summary(), "gemini-test", "gemini-summary-v1", objectMapper))
@@ -220,9 +311,9 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.approvalNeededCount).isEqualTo(1)
         assertThat(result.sampleApprovalNeeded.single().reason).isEqualTo("content_changed")
         assertThat(result.summarizedCount).isZero()
-        assertThat(result.dryRunAlertCount).isZero()
+        assertThat(result.digestNoChangeCount).isEqualTo(1)
+        assertThat(notifier.payloads.single().body).isEqualTo(DailyDigestFormatter.NO_CHANGES_TEXT)
         assertThat(aiClient.calls).isZero()
-        assertThat(notifier.calls).isZero()
         assertThat(postRepository.findByUrl(url)?.processingStatus).isEqualTo(ProcessingStatus.APPROVAL_NEEDED.name)
         assertThat(summaryRepository.count()).isEqualTo(1)
     }
@@ -231,9 +322,11 @@ class MonitorRunServiceTest @Autowired constructor(
     fun `per article extraction failure is sampled and does not stop the run`() {
         val good = blogUrl("good")
         val bad = blogUrl("bad")
+        val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
         val service = monitorService(
             sitemapXml = sitemap(listOf(good, bad)),
             articleBodies = mapOf(good to fixture("/fixtures/airwallex/blog-agentos.html")),
+            notifier = notifier,
         )
 
         val result = service.runOnce()
@@ -242,24 +335,22 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.seededCount).isEqualTo(1)
         assertThat(result.approvalNeededCount).isEqualTo(1)
         assertThat(result.failedCount).isEqualTo(1)
+        assertThat(result.digestNoChangeCount).isEqualTo(1)
         val error = result.sampleErrors.single()
         assertThat(error.url).isEqualTo(bad)
         assertThat(error.reason).contains("missing fixture")
         assertThat(postRepository.count()).isEqualTo(1)
+        assertThat(notifier.calls).isEqualTo(1)
     }
 
     @Test
-    fun `sitemap discovery failure writes no posts and reports failed status`() {
-        val service = MonitorRunService(
-            sourceDiscoveryService = AirwallexSourceDiscoveryService(AppProperties(), ThrowingHttpClient(IllegalStateException("sitemap down"))),
-            articleExtractor = articleExtractor(emptyMap()),
-            postStateService = postStateService,
-            postRepository = postRepository,
-            summaryRepository = summaryRepository,
-            articleSummaryService = summaryService(FakeAiSummaryClient(summary())),
-            alertFormatter = WhatsAppAlertFormatter(),
-            whatsAppNotifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN),
-            properties = testProperties(),
+    fun `sitemap discovery failure writes no posts and does not run digest`() {
+        val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
+        val service = monitorService(
+            sitemapXml = "",
+            articleBodies = emptyMap(),
+            notifier = notifier,
+            sourceDiscoveryService = AirwallexSourceDiscoveryService(testProperties(), ThrowingHttpClient(IllegalStateException("sitemap down"))),
         )
 
         val result = service.runOnce()
@@ -268,7 +359,10 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.sitemapFetched).isFalse()
         assertThat(result.failedCount).isEqualTo(1)
         assertThat(result.summarizedCount).isZero()
+        assertThat(result.digestSentCount).isZero()
+        assertThat(result.digestNoChangeCount).isZero()
         assertThat(result.twilioCallsTriggered).isFalse()
+        assertThat(notifier.calls).isZero()
         val error = result.sampleErrors.single()
         assertThat(error.url).isNull()
         assertThat(error.reason).contains("sitemap down")
@@ -280,23 +374,35 @@ class MonitorRunServiceTest @Autowired constructor(
         articleBodies: Map<String, String>,
         aiClient: FakeAiSummaryClient = FakeAiSummaryClient(summary()),
         notifier: FakeWhatsAppNotifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN),
-    ): MonitorRunService = MonitorRunService(
-        sourceDiscoveryService = AirwallexSourceDiscoveryService(testProperties(), StaticHttpClient(sitemapXml)),
-        articleExtractor = articleExtractor(articleBodies),
-        postStateService = postStateService,
-        postRepository = postRepository,
-        summaryRepository = summaryRepository,
-        articleSummaryService = summaryService(aiClient),
-        alertFormatter = WhatsAppAlertFormatter(),
-        whatsAppNotifier = notifier,
-        properties = testProperties(),
-    )
+        properties: AppProperties = testProperties(),
+        sourceDiscoveryService: AirwallexSourceDiscoveryService = AirwallexSourceDiscoveryService(properties, StaticHttpClient(sitemapXml)),
+    ): MonitorRunService {
+        val eligibilityService = DigestEligibilityService(summaryRepository, postRepository)
+        return MonitorRunService(
+            sourceDiscoveryService = sourceDiscoveryService,
+            articleExtractor = articleExtractor(articleBodies),
+            postStateService = postStateService,
+            postRepository = postRepository,
+            summaryRepository = summaryRepository,
+            articleSummaryService = summaryService(aiClient, properties),
+            subscriberSeedService = SubscriberSeedService(properties, subscriberRepository, subscriberChannelRepository),
+            dailyDigestService = DailyDigestService(
+                properties = properties,
+                subscriberChannelRepository = subscriberChannelRepository,
+                digestDeliveryRepository = digestDeliveryRepository,
+                digestDeliveryPostRepository = digestDeliveryPostRepository,
+                digestEligibilityService = eligibilityService,
+                dailyDigestFormatter = DailyDigestFormatter(objectMapper),
+                whatsAppNotifier = notifier,
+            ),
+        )
+    }
 
-    private fun summaryService(aiClient: AiSummaryClient): ArticleSummaryService = ArticleSummaryService(
+    private fun summaryService(aiClient: AiSummaryClient, properties: AppProperties): ArticleSummaryService = ArticleSummaryService(
         aiSummaryClient = aiClient,
         summaryRepository = summaryRepository,
         objectMapper = objectMapper,
-        properties = AppProperties(ai = AppProperties.Ai(model = "gemini-test")),
+        properties = properties.copy(ai = AppProperties.Ai(model = "gemini-test")),
         jdbcTemplate = jdbcTemplate,
     )
 
@@ -325,6 +431,23 @@ class MonitorRunServiceTest @Autowired constructor(
             processingStatus = ProcessingStatus.ALERT_SENT.name,
         ),
     )
+
+    private fun createChannel(recipient: String): SubscriberChannelRecord {
+        val now = Instant.parse("2026-06-22T00:00:00Z")
+        val subscriber = subscriberRepository.save(
+            SubscriberRecord(displayName = "Subscriber $recipient", createdAt = now, updatedAt = now),
+        )
+        return subscriberChannelRepository.save(
+            SubscriberChannelRecord(
+                subscriberId = subscriber.identifier(),
+                channel = SubscriberChannelType.WHATSAPP,
+                recipient = recipient,
+                status = SubscriberStatus.ACTIVE,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+    }
 
     private fun sitemap(urls: List<String>, lastmod: Instant = Instant.parse("2026-06-20T00:00:00Z")): String = buildString {
         appendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
@@ -389,13 +512,22 @@ class MonitorRunServiceTest @Autowired constructor(
         private val status: NotificationStatus,
         private val errorMessage: String? = null,
         private val twilioCalled: Boolean = false,
+        private val failingRecipients: Set<String> = emptySet(),
     ) : WhatsAppNotifier {
         var calls = 0
         val payloads = mutableListOf<WhatsAppAlertPayload>()
 
-        override fun send(post: PostRecord, payload: WhatsAppAlertPayload): NotificationResult {
+        override fun send(payload: WhatsAppAlertPayload): NotificationResult {
             calls += 1
             payloads += payload
+            if (payload.recipient in failingRecipients) {
+                return NotificationResult(
+                    status = NotificationStatus.FAILED,
+                    payloadPreview = payload.preview,
+                    errorMessage = "simulated failure for ${payload.recipient}",
+                    twilioCalled = false,
+                )
+            }
             return NotificationResult(
                 status = status,
                 payloadPreview = payload.preview,

@@ -87,12 +87,18 @@ class AdminControllerTest @Autowired constructor(
             .andExpect(jsonPath("$.summaryFailedCount").value(0))
             .andExpect(jsonPath("$.approvalNeededCount").value(1))
             .andExpect(jsonPath("$.alertSentCount").value(0))
-            .andExpect(jsonPath("$.dryRunAlertCount").value(2))
+            .andExpect(jsonPath("$.dryRunAlertCount").value(0))
             .andExpect(jsonPath("$.alertFailedCount").value(0))
+            .andExpect(jsonPath("$.digestSentCount").value(1))
+            .andExpect(jsonPath("$.digestNoChangeCount").value(1))
+            .andExpect(jsonPath("$.digestSkippedDuplicateCount").value(1))
+            .andExpect(jsonPath("$.digestFailedCount").value(0))
             .andExpect(jsonPath("$.sampleUrls.seeded[0]").value("https://www.airwallex.com/global/blog/seeded"))
             .andExpect(jsonPath("$.sampleUrls.new[0]").value("https://www.airwallex.com/global/blog/new"))
             .andExpect(jsonPath("$.sampleUrls.updated[0]").value("https://www.airwallex.com/global/newsroom/updated"))
             .andExpect(jsonPath("$.samplePayloads[0]").value("Airwallex FYI: Example payload"))
+            .andExpect(jsonPath("$.sampleDigestDeliveries[0]").value("whatsapp:+15550000002 DIGEST DRY_RUN"))
+            .andExpect(jsonPath("$.sampleDigestErrors", hasSize<Any>(0)))
             .andExpect(jsonPath("$.sampleApprovalNeeded[0].reason").value("content_changed"))
             .andExpect(jsonPath("$.sampleErrors", hasSize<Any>(0)))
             .andExpect(jsonPath("$.externalCallsTriggered").value(true))
@@ -288,8 +294,12 @@ class AdminControllerTest @Autowired constructor(
         summaryFailedCount = 0,
         approvalNeededCount = 1,
         alertSentCount = 0,
-        dryRunAlertCount = 2,
+        dryRunAlertCount = 0,
         alertFailedCount = 0,
+        digestSentCount = 1,
+        digestNoChangeCount = 1,
+        digestSkippedDuplicateCount = 1,
+        digestFailedCount = 0,
         sampleUrls = MonitorRunSampleUrls(
             seeded = listOf("https://www.airwallex.com/global/blog/seeded"),
             new = listOf("https://www.airwallex.com/global/blog/new"),
@@ -303,6 +313,8 @@ class AdminControllerTest @Autowired constructor(
                 reason = "content_changed",
             ),
         ),
+        sampleDigestDeliveries = listOf("whatsapp:+15550000002 DIGEST DRY_RUN"),
+        sampleDigestErrors = emptyList(),
         externalCallsTriggered = true,
         twilioCallsTriggered = false,
         message = "Monitor run completed.",
@@ -343,3 +355,5 @@ class AdminControllerTest @Autowired constructor(
     private fun authorized(builder: org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder): org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder =
         builder.header(AdminTokenFilter.ADMIN_TOKEN_HEADER, "test-admin-token")
 }
+
+

@@ -2,16 +2,14 @@ package com.airwallexfyi.monitor
 
 import com.airwallexfyi.articles.ArticleExtractor
 import com.airwallexfyi.articles.ExtractedArticle
-import com.airwallexfyi.config.AppProperties
-import com.airwallexfyi.notifications.NotificationResult
-import com.airwallexfyi.notifications.NotificationStatus
-import com.airwallexfyi.notifications.WhatsAppAlertFormatter
-import com.airwallexfyi.notifications.WhatsAppNotifier
+import com.airwallexfyi.digests.DailyDigestRunResult
+import com.airwallexfyi.digests.DailyDigestService
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.sources.AirwallexSourceDiscoveryService
 import com.airwallexfyi.sources.SitemapEntry
+import com.airwallexfyi.subscribers.SubscriberSeedService
 import com.airwallexfyi.summaries.ArticleSummaryResult
 import com.airwallexfyi.summaries.ArticleSummaryService
 import com.airwallexfyi.summaries.SummaryRepository
@@ -25,9 +23,8 @@ class MonitorRunService(
     private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
     private val articleSummaryService: ArticleSummaryService,
-    private val alertFormatter: WhatsAppAlertFormatter,
-    private val whatsAppNotifier: WhatsAppNotifier,
-    private val properties: AppProperties,
+    private val subscriberSeedService: SubscriberSeedService,
+    private val dailyDigestService: DailyDigestService,
 ) {
     fun runOnce(): MonitorRunResult {
         val candidates = try {
@@ -76,6 +73,7 @@ class MonitorRunService(
         }
 
         recordMissingSummaryApprovals(candidates, accumulator)
+        runDailyDigest(accumulator)
 
         return accumulator.toResult()
     }
@@ -83,36 +81,22 @@ class MonitorRunService(
     private fun handleNewPost(post: PostRecord, article: ExtractedArticle, accumulator: MonitorRunAccumulator) {
         when (val summaryResult = articleSummaryService.summarize(post, article)) {
             is ArticleSummaryResult.Success -> {
+                postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.SUMMARY_READY)
                 accumulator.recordSummarySuccess()
-                val payload = alertFormatter.format(post, summaryResult.summary, properties.whatsapp.to)
-                val notification = runCatching { whatsAppNotifier.send(post, payload) }
-                    .getOrElse { ex ->
-                        NotificationResult(
-                            status = NotificationStatus.FAILED,
-                            payloadPreview = payload.preview,
-                            errorMessage = ex.shortReason(),
-                            twilioCalled = false,
-                        )
-                    }
-                when (notification.status) {
-                    NotificationStatus.DRY_RUN -> {
-                        postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.DRY_RUN_READY)
-                        accumulator.recordDryRunAlert(notification)
-                    }
-                    NotificationStatus.SENT -> {
-                        postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.ALERT_SENT)
-                        accumulator.recordSentAlert(notification)
-                    }
-                    NotificationStatus.FAILED -> {
-                        postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.ALERT_FAILED)
-                        accumulator.recordAlertFailure(post.url, notification)
-                    }
-                }
             }
             is ArticleSummaryResult.Failure -> {
                 postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.SUMMARY_FAILED)
                 accumulator.recordSummaryFailure(post.url, summaryResult.reason)
             }
+        }
+    }
+
+    private fun runDailyDigest(accumulator: MonitorRunAccumulator) {
+        try {
+            subscriberSeedService.seedDefaultSubscriberIfConfigured()
+            accumulator.recordDigestResult(dailyDigestService.sendDailyDigests())
+        } catch (ex: RuntimeException) {
+            accumulator.recordDigestFailure("Digest delivery failed: ${ex.shortReason()}")
         }
     }
 
@@ -141,6 +125,10 @@ private class MonitorRunAccumulator(
     private var alertSentCount = 0
     private var dryRunAlertCount = 0
     private var alertFailedCount = 0
+    private var digestSentCount = 0
+    private var digestNoChangeCount = 0
+    private var digestSkippedDuplicateCount = 0
+    private var digestFailedCount = 0
     private var twilioCallsTriggered = false
     private val seededUrls = mutableListOf<String>()
     private val newUrls = mutableListOf<String>()
@@ -149,6 +137,8 @@ private class MonitorRunAccumulator(
     private val payloads = mutableListOf<String>()
     private val approvalNeeded = mutableListOf<MonitorApprovalNeeded>()
     private val approvalUrls = mutableSetOf<String>()
+    private val digestDeliveries = mutableListOf<String>()
+    private val digestErrors = mutableListOf<String>()
 
     val approvalNeededCount: Int
         get() = approvalUrls.size
@@ -180,21 +170,20 @@ private class MonitorRunAccumulator(
         recordFailure(url, "Summary failed: $reason")
     }
 
-    fun recordDryRunAlert(notification: NotificationResult) {
-        dryRunAlertCount += 1
-        addPayload(notification.payloadPreview)
+    fun recordDigestResult(result: DailyDigestRunResult) {
+        digestSentCount += result.digestSentCount
+        digestNoChangeCount += result.noChangeCount
+        digestSkippedDuplicateCount += result.skippedDuplicateCount
+        digestFailedCount += result.failedCount
+        twilioCallsTriggered = twilioCallsTriggered || result.twilioCallsTriggered
+        result.samplePayloads.forEach { addPayload(it) }
+        result.sampleDeliveries.forEach { digestDeliveries.addSample(it) }
+        result.sampleErrors.forEach { digestErrors.addSample(it) }
     }
 
-    fun recordSentAlert(notification: NotificationResult) {
-        alertSentCount += 1
-        twilioCallsTriggered = twilioCallsTriggered || notification.twilioCalled
-        addPayload(notification.payloadPreview)
-    }
-
-    fun recordAlertFailure(url: String, notification: NotificationResult) {
-        alertFailedCount += 1
-        twilioCallsTriggered = twilioCallsTriggered || notification.twilioCalled
-        recordFailure(url, "Alert failed: ${notification.errorMessage ?: "unknown error"}")
+    fun recordDigestFailure(reason: String) {
+        digestFailedCount += 1
+        digestErrors.addSample(reason)
     }
 
     fun recordApprovalNeeded(url: String, reason: String) {
@@ -212,15 +201,15 @@ private class MonitorRunAccumulator(
     }
 
     fun toResult(): MonitorRunResult {
-        val failureTotal = failedCount + summaryFailedCount + alertFailedCount
+        val failureTotal = failedCount + summaryFailedCount + alertFailedCount + digestFailedCount
         val status = when {
             failureTotal == 0 -> MonitorRunStatus.COMPLETED
-            seededCount + newCount + updatedCount + skippedCount + summarizedCount + approvalNeededCount > 0 -> MonitorRunStatus.PARTIAL_FAILURE
+            seededCount + newCount + updatedCount + skippedCount + summarizedCount + approvalNeededCount + digestSentCount + digestNoChangeCount + digestSkippedDuplicateCount > 0 -> MonitorRunStatus.PARTIAL_FAILURE
             else -> MonitorRunStatus.FAILED
         }
         val message = when (status) {
             MonitorRunStatus.COMPLETED -> "Monitor run completed."
-            MonitorRunStatus.PARTIAL_FAILURE -> "Monitor run completed with article-level failures."
+            MonitorRunStatus.PARTIAL_FAILURE -> "Monitor run completed with article or delivery failures."
             else -> "Monitor run failed before any article was stored or skipped."
         }
 
@@ -239,6 +228,10 @@ private class MonitorRunAccumulator(
             alertSentCount = alertSentCount,
             dryRunAlertCount = dryRunAlertCount,
             alertFailedCount = alertFailedCount,
+            digestSentCount = digestSentCount,
+            digestNoChangeCount = digestNoChangeCount,
+            digestSkippedDuplicateCount = digestSkippedDuplicateCount,
+            digestFailedCount = digestFailedCount,
             sampleUrls = MonitorRunSampleUrls(
                 seeded = seededUrls,
                 new = newUrls,
@@ -247,6 +240,8 @@ private class MonitorRunAccumulator(
             sampleErrors = errors,
             samplePayloads = payloads,
             sampleApprovalNeeded = approvalNeeded,
+            sampleDigestDeliveries = digestDeliveries,
+            sampleDigestErrors = digestErrors,
             externalCallsTriggered = summarizedCount > 0 || twilioCallsTriggered,
             twilioCallsTriggered = twilioCallsTriggered,
             message = message,
@@ -257,8 +252,8 @@ private class MonitorRunAccumulator(
         if (payloads.size < SAMPLE_LIMIT) payloads += payload
     }
 
-    private fun MutableList<String>.addSample(url: String) {
-        if (size < SAMPLE_LIMIT) add(url)
+    private fun MutableList<String>.addSample(value: String) {
+        if (size < SAMPLE_LIMIT) add(value)
     }
 }
 
