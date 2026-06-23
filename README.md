@@ -11,7 +11,18 @@ Current scope is WhatsApp-first. Slack, chatbot interactions, Supabase/admin sub
 
 ## Local Setup
 
-Use `.env.example` as the environment-variable reference. Spring Boot does not automatically load `.env` files by itself, so set the variables in your shell, IDE run config, or process manager.
+Use `.env.example` as the environment-variable reference, then put your local secrets in `.env`. The app imports `.env` automatically when it exists, and `.env` is ignored by Git.
+
+Example `.env` entries for a Twilio Sandbox smoke test:
+
+```properties
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+WHATSAPP_TO=whatsapp:+61YOURNUMBER
+DRY_RUN=false
+SCHEDULER_ENABLED=false
+```
 
 Safe local defaults:
 
@@ -19,6 +30,23 @@ Safe local defaults:
 - `SCHEDULER_ENABLED=false`
 - `ADMIN_TOKEN=dev-admin-token`
 - H2 in-memory database unless `DATABASE_URL` points somewhere else
+
+## Persistent Database
+
+Local runs default to an in-memory H2 database, so processed posts disappear when the process exits. For a real daily bot, use a persistent Postgres-compatible database from a cloud provider such as Supabase, Neon, Railway, Render, Fly.io, or a managed Postgres host.
+
+The app already includes the PostgreSQL driver and Flyway PostgreSQL support. Switching from local H2 to cloud Postgres should only require environment variables:
+
+```properties
+DATABASE_URL=jdbc:postgresql://HOST:5432/postgres?sslmode=require
+DATABASE_USERNAME=postgres
+DATABASE_PASSWORD=your_database_password
+DATABASE_DRIVER=org.postgresql.Driver
+```
+
+Keep the `jdbc:postgresql://...` prefix. Some providers show a `postgres://...` URL; convert that to the JDBC form before putting it in `.env`.
+
+Flyway migrations run on startup, so the same schema used locally will be created in the cloud database.
 
 ## Tests
 
