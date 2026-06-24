@@ -134,7 +134,7 @@ class DailyDigestServiceTest @Autowired constructor(
     }
 
     @Test
-    fun `failed subscriber channel records failure and does not block other channels`() {
+    fun `failed subscriber channel retries without blocking other channels`() {
         val failingChannel = createChannel("whatsapp:+15550003006")
         val successfulChannel = createChannel("whatsapp:+15550003007")
         createSummarizedPost("https://www.airwallex.com/global/blog/failure-isolated-${System.nanoTime()}")
@@ -155,8 +155,9 @@ class DailyDigestServiceTest @Autowired constructor(
         assertThat(failedDelivery.status).isEqualTo(DigestDeliveryStatus.FAILED)
         assertThat(failedDelivery.errorMessage).contains("simulated failure")
         assertThat(successfulDelivery.status).isEqualTo(DigestDeliveryStatus.DRY_RUN)
-        assertThat(retry.skippedDuplicateCount).isEqualTo(2)
-        assertThat(notifier.payloads).hasSize(2)
+        assertThat(retry.failedCount).isEqualTo(1)
+        assertThat(retry.skippedDuplicateCount).isEqualTo(1)
+        assertThat(notifier.payloads).hasSize(3)
     }
 
     private fun service(

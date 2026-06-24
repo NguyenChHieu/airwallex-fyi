@@ -50,9 +50,15 @@ class DailyDigestService(
             localDate,
         )
         if (existing != null) {
-            counters.skippedDuplicateCount += 1
-            counters.addDeliverySample("${subscriberChannel.recipient} ${existing.messageType} ${DigestDeliveryStatus.SKIPPED_DUPLICATE}")
-            return
+            if (existing.status != DigestDeliveryStatus.FAILED) {
+                counters.skippedDuplicateCount += 1
+                counters.addDeliverySample("${subscriberChannel.recipient} ${existing.messageType} ${DigestDeliveryStatus.SKIPPED_DUPLICATE}")
+                return
+            }
+            digestDeliveryPostRepository.deleteAll(
+                digestDeliveryPostRepository.findByDigestDeliveryIdOrderByDisplayOrderAsc(existing.identifier()),
+            )
+            digestDeliveryRepository.delete(existing)
         }
 
         val lastSuccessfulDelivery = digestDeliveryRepository.findMostRecentSuccessfulDelivery(subscriberChannel.identifier())
