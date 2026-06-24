@@ -90,6 +90,7 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.sitemapFetched).isTrue()
         assertThat(result.discoveredCount).isEqualTo(2)
         assertThat(result.seededCount).isEqualTo(2)
+        assertThat(result.baselinedCount).isZero()
         assertThat(result.newCount).isZero()
         assertThat(result.summarizedCount).isZero()
         assertThat(result.approvalNeededCount).isZero()
@@ -102,6 +103,27 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(notifier.calls).isEqualTo(1)
         assertThat(subscriberChannelRepository.count()).isEqualTo(1)
         assertThat(postRepository.findAll().map { it.processingStatus }.toSet()).containsExactly(ProcessingStatus.SEEDED.name)
+    }
+
+    @Test
+    fun `first run baselines older sitemap urls without extracting them`() {
+        val urls = (0..25).map { blogUrl("seed-window-$it") }
+        val service = monitorService(
+            sitemapXml = sitemap(urls),
+            articleBodies = urls.drop(1).associateWith { fixture("/fixtures/airwallex/blog-agentos.html") },
+        )
+
+        val result = service.runOnce()
+
+        assertThat(result.status).isEqualTo(MonitorRunStatus.COMPLETED)
+        assertThat(result.discoveredCount).isEqualTo(26)
+        assertThat(result.seededCount).isEqualTo(25)
+        assertThat(result.baselinedCount).isEqualTo(1)
+        assertThat(result.failedCount).isZero()
+        assertThat(postRepository.findByUrl(urls.first())?.processingStatus).isEqualTo(ProcessingStatus.BASELINED.name)
+        assertThat(postRepository.findByUrl(urls.first())?.articleBody).isNull()
+        assertThat(postRepository.findByUrl(urls.last())?.processingStatus).isEqualTo(ProcessingStatus.SEEDED.name)
+        assertThat(postRepository.findByUrl(urls.last())?.articleBody).isNotBlank()
     }
 
     @Test
@@ -119,6 +141,7 @@ class MonitorRunServiceTest @Autowired constructor(
 
         assertThat(second.status).isEqualTo(MonitorRunStatus.COMPLETED)
         assertThat(second.seededCount).isZero()
+        assertThat(second.baselinedCount).isZero()
         assertThat(second.newCount).isZero()
         assertThat(second.updatedCount).isZero()
         assertThat(second.skippedCount).isEqualTo(2)

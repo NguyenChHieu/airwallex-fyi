@@ -39,16 +39,20 @@ class PostStateServiceTest @Autowired constructor(
         assertThat(plan.skippedCount).isZero()
         assertThat(plan.workItems.first().entry.url).endsWith("/article-29")
 
-        plan.workItems.forEach { item ->
+        plan.workItems.take(25).forEach { item ->
             assertThat(postStateService.apply(item, articleFor(item.entry))).extracting(PostApplyResult::kind)
                 .isEqualTo(PostApplyKind.SEEDED)
+        }
+        plan.workItems.drop(25).forEach { item ->
+            assertThat(postStateService.apply(item, articleFor(item.entry))).extracting(PostApplyResult::kind)
+                .isEqualTo(PostApplyKind.BASELINED)
         }
 
         assertThat(postRepository.count()).isEqualTo(30)
         assertThat(postRepository.findByUrl("https://www.airwallex.com/global/blog/article-29")?.processingStatus)
             .isEqualTo("SEEDED")
         val baselined = postRepository.findByUrl("https://www.airwallex.com/global/blog/article-0")
-        assertThat(baselined?.processingStatus).isEqualTo("SEEDED")
+        assertThat(baselined?.processingStatus).isEqualTo("BASELINED")
         assertThat(baselined?.articleBody).isNull()
         assertThat(baselined?.contentHash).isNull()
     }

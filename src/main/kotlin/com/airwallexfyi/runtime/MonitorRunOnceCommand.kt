@@ -24,11 +24,12 @@ class DefaultMonitorRunOnceCommand(
 
     private fun log(result: MonitorRunResult) {
         logger.info(
-            "Monitor run-once completed: status={} message={} discovered={} seeded={} new={} updated={} skipped={} failed={} summarized={} summaryFailed={} approvals={} digestSent={} digestNoChange={} digestSkippedDuplicate={} digestFailed={} digestErrors={}",
+            "Monitor run-once completed: status={} message={} discovered={} seeded={} baselined={} new={} updated={} skipped={} failed={} summarized={} summaryFailed={} approvals={} digestSent={} digestNoChange={} digestSkippedDuplicate={} digestFailed={} digestErrors={}",
             result.status,
             result.message,
             result.discoveredCount,
             result.seededCount,
+            result.baselinedCount,
             result.newCount,
             result.updatedCount,
             result.skippedCount,

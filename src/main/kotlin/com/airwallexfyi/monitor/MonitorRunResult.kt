@@ -5,6 +5,7 @@ data class MonitorRunResult(
     val sitemapFetched: Boolean,
     val discoveredCount: Int,
     val seededCount: Int,
+    val baselinedCount: Int = 0,
     val newCount: Int,
     val updatedCount: Int,
     val skippedCount: Int,
@@ -29,6 +30,7 @@ data class MonitorRunResult(
 
 data class MonitorRunSampleUrls(
     val seeded: List<String> = emptyList(),
+    val baselined: List<String> = emptyList(),
     val new: List<String> = emptyList(),
     val updated: List<String> = emptyList(),
 )

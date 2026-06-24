@@ -69,6 +69,7 @@ class MonitorRunService(
                         accumulator.recordApprovalNeeded(applyResult.url, "content_changed")
                     }
                     PostApplyKind.SEEDED,
+                    PostApplyKind.BASELINED,
                     PostApplyKind.SKIPPED -> Unit
                 }
             } catch (ex: RuntimeException) {
@@ -107,7 +108,7 @@ class MonitorRunService(
     private fun recordMissingSummaryApprovals(candidates: List<SitemapEntry>, accumulator: MonitorRunAccumulator) {
         candidates.forEach { candidate ->
             val post = postRepository.findByUrl(candidate.url) ?: return@forEach
-            if (post.processingStatus == ProcessingStatus.SEEDED.name) return@forEach
+            if (post.processingStatus in setOf(ProcessingStatus.SEEDED.name, ProcessingStatus.BASELINED.name)) return@forEach
             val alreadySummarized = summaryRepository.findByPostId(post.identifier()) != null
             if (!alreadySummarized && post.processingStatus != ProcessingStatus.SUMMARY_FAILED.name) {
                 postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.APPROVAL_NEEDED)
@@ -122,6 +123,7 @@ private class MonitorRunAccumulator(
     private var skippedCount: Int,
 ) {
     private var seededCount = 0
+    private var baselinedCount = 0
     private var newCount = 0
     private var updatedCount = 0
     private var failedCount = 0
@@ -133,6 +135,7 @@ private class MonitorRunAccumulator(
     private var digestFailedCount = 0
     private var twilioCallsTriggered = false
     private val seededUrls = mutableListOf<String>()
+    private val baselinedUrls = mutableListOf<String>()
     private val newUrls = mutableListOf<String>()
     private val updatedUrls = mutableListOf<String>()
     private val errors = mutableListOf<MonitorRunError>()
@@ -150,6 +153,10 @@ private class MonitorRunAccumulator(
             PostApplyKind.SEEDED -> {
                 seededCount += 1
                 seededUrls.addSample(result.url)
+            }
+            PostApplyKind.BASELINED -> {
+                baselinedCount += 1
+                baselinedUrls.addSample(result.url)
             }
             PostApplyKind.NEW -> {
                 newCount += 1
@@ -206,7 +213,7 @@ private class MonitorRunAccumulator(
         val failureTotal = failedCount + summaryFailedCount + digestFailedCount
         val status = when {
             failureTotal == 0 -> MonitorRunStatus.COMPLETED
-            seededCount + newCount + updatedCount + skippedCount + summarizedCount + approvalNeededCount + digestSentCount + digestNoChangeCount + digestSkippedDuplicateCount > 0 -> MonitorRunStatus.PARTIAL_FAILURE
+            seededCount + baselinedCount + newCount + updatedCount + skippedCount + summarizedCount + approvalNeededCount + digestSentCount + digestNoChangeCount + digestSkippedDuplicateCount > 0 -> MonitorRunStatus.PARTIAL_FAILURE
             else -> MonitorRunStatus.FAILED
         }
         val message = when (status) {
@@ -220,6 +227,7 @@ private class MonitorRunAccumulator(
             sitemapFetched = true,
             discoveredCount = discoveredCount,
             seededCount = seededCount,
+            baselinedCount = baselinedCount,
             newCount = newCount,
             updatedCount = updatedCount,
             skippedCount = skippedCount,
@@ -233,6 +241,7 @@ private class MonitorRunAccumulator(
             digestFailedCount = digestFailedCount,
             sampleUrls = MonitorRunSampleUrls(
                 seeded = seededUrls,
+                baselined = baselinedUrls,
                 new = newUrls,
                 updated = updatedUrls,
             ),

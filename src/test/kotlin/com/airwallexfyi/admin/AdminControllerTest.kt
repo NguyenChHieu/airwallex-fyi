@@ -76,6 +76,7 @@ class AdminControllerTest @Autowired constructor(
             .andExpect(jsonPath("$.sitemapFetched").value(true))
             .andExpect(jsonPath("$.discoveredCount").value(12))
             .andExpect(jsonPath("$.seededCount").value(1))
+            .andExpect(jsonPath("$.baselinedCount").value(5))
             .andExpect(jsonPath("$.newCount").value(2))
             .andExpect(jsonPath("$.updatedCount").value(3))
             .andExpect(jsonPath("$.skippedCount").value(4))
@@ -278,6 +279,7 @@ class AdminControllerTest @Autowired constructor(
         sitemapFetched = true,
         discoveredCount = 12,
         seededCount = 1,
+        baselinedCount = 5,
         newCount = 2,
         updatedCount = 3,
         skippedCount = 4,

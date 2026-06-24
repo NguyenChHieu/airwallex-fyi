@@ -113,10 +113,10 @@ class PostStateService(
                 sourceType = workItem.entry.sourceType.name,
                 sitemapLastmod = workItem.entry.sitemapLastmod,
                 discoveredAt = workItem.entry.discoveredAt,
-                processingStatus = ProcessingStatus.SEEDED.name,
+                processingStatus = ProcessingStatus.BASELINED.name,
             ),
         )
-        return PostApplyResult(PostApplyKind.SEEDED, workItem.entry.url, post)
+        return PostApplyResult(PostApplyKind.BASELINED, workItem.entry.url, post)
     }
 
     private fun updateKnownArticle(workItem: PostWorkItem, article: ExtractedArticle): PostApplyResult {
@@ -209,6 +209,7 @@ data class PostApplyResult(
 
 enum class PostApplyKind {
     SEEDED,
+    BASELINED,
     NEW,
     UPDATED,
     SKIPPED,
