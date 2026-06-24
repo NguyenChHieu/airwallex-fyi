@@ -92,7 +92,7 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.seededCount).isEqualTo(2)
         assertThat(result.newCount).isZero()
         assertThat(result.summarizedCount).isZero()
-        assertThat(result.approvalNeededCount).isEqualTo(2)
+        assertThat(result.approvalNeededCount).isZero()
         assertThat(result.digestNoChangeCount).isEqualTo(1)
         assertThat(result.digestSentCount).isZero()
         assertThat(result.samplePayloads.single()).isEqualTo(DailyDigestFormatter.NO_CHANGES_TEXT)
@@ -101,7 +101,7 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(aiClient.calls).isZero()
         assertThat(notifier.calls).isEqualTo(1)
         assertThat(subscriberChannelRepository.count()).isEqualTo(1)
-        assertThat(postRepository.findAll().map { it.processingStatus }.toSet()).containsExactly(ProcessingStatus.APPROVAL_NEEDED.name)
+        assertThat(postRepository.findAll().map { it.processingStatus }.toSet()).containsExactly(ProcessingStatus.SEEDED.name)
     }
 
     @Test
@@ -330,7 +330,7 @@ class MonitorRunServiceTest @Autowired constructor(
 
         assertThat(result.status).isEqualTo(MonitorRunStatus.PARTIAL_FAILURE)
         assertThat(result.seededCount).isEqualTo(1)
-        assertThat(result.approvalNeededCount).isEqualTo(1)
+        assertThat(result.approvalNeededCount).isZero()
         assertThat(result.failedCount).isEqualTo(1)
         assertThat(result.digestNoChangeCount).isEqualTo(1)
         val error = result.sampleErrors.single()

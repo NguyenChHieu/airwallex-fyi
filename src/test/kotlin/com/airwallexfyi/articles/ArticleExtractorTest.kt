@@ -96,6 +96,28 @@ class ArticleExtractorTest {
     }
 
     @Test
+    fun `does not use full page navigation shell as fallback body`() {
+        val html = """
+            <!doctype html>
+            <html>
+              <head>
+                <title>Airwallex Shell Page</title>
+                <meta property="og:title" content="Airwallex Shell Page">
+              </head>
+              <body>
+                <nav>Products Business Accounts Global Accounts Payments Pricing Resources Contact sales</nav>
+                <div>Products Business Accounts Global Accounts Payments Pricing Resources Contact sales</div>
+              </body>
+            </html>
+        """.trimIndent()
+        val url = "https://www.airwallex.com/global/blog/navigation-shell"
+
+        assertThatThrownBy { extractor(html).extract(entry(url, SourceType.BLOG)) }
+            .isInstanceOf(ArticleExtractionException::class.java)
+            .hasMessageContaining("missing meaningful body")
+    }
+
+    @Test
     fun `content hash ignores media metadata`() {
         val entry = entry("https://www.airwallex.com/global/blog/hash-media", SourceType.BLOG)
         val original = extractor(fixture("/fixtures/airwallex/blog-agentos.html")).extract(entry)

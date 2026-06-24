@@ -1,6 +1,4 @@
 spring:
-  config:
-    import: optional:file:.env[.properties]
   application:
     name: airwallex-fyi
   datasource:
@@ -36,3 +34,9 @@ airwallex-fyi:
   admin:
     token: ${ADMIN_TOKEN:dev-admin-token}
 
+---
+spring:
+  config:
+    activate:
+      on-profile: "!test"
+    import: optional:file:.env[.properties]

@@ -55,6 +55,10 @@ class MonitorRunService(
 
         statePlan.workItems.forEach { workItem ->
             try {
+                if (workItem.mode == PostWorkMode.BASELINE) {
+                    accumulator.record(postStateService.baseline(workItem))
+                    return@forEach
+                }
                 val article = articleExtractor.extract(workItem.entry)
                 val applyResult = postStateService.apply(workItem, article)
                 accumulator.record(applyResult)
@@ -103,6 +107,7 @@ class MonitorRunService(
     private fun recordMissingSummaryApprovals(candidates: List<SitemapEntry>, accumulator: MonitorRunAccumulator) {
         candidates.forEach { candidate ->
             val post = postRepository.findByUrl(candidate.url) ?: return@forEach
+            if (post.processingStatus == ProcessingStatus.SEEDED.name) return@forEach
             val alreadySummarized = summaryRepository.findByPostId(post.identifier()) != null
             if (!alreadySummarized && post.processingStatus != ProcessingStatus.SUMMARY_FAILED.name) {
                 postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.APPROVAL_NEEDED)

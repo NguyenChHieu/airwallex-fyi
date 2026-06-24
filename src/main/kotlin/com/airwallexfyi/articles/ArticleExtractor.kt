@@ -66,6 +66,8 @@ class ArticleExtractor(
     }
 
     private fun extractFallback(document: Document, entry: SitemapEntry): ExtractedArticle {
+        document.select("script, style, noscript, nav, header, footer, aside").remove()
+
         val title = document.selectFirst("meta[property=og:title]")?.attr("content")?.cleanText()
             ?: document.selectFirst("h1")?.text()?.cleanText()
             ?: document.title().cleanText()
@@ -128,6 +130,6 @@ class ArticleExtractor(
     private companion object {
         const val MIN_BODY_LENGTH = 40
         val WHITESPACE = Regex("\\s+")
-        val FALLBACK_BODY_SELECTORS = listOf("article", "main", "body")
+        val FALLBACK_BODY_SELECTORS = listOf("article", "main", "[role=main]")
     }
 }

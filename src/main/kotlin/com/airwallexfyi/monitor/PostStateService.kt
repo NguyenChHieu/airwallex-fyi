@@ -25,13 +25,17 @@ class PostStateService(
 
         val existingByUrl = postRepository.findAll().associateBy { it.url }
         if (existingByUrl.isEmpty()) {
-            val seedItems = candidates
+            val sortedCandidates = candidates
                 .sortedWith(compareByDescending<SitemapEntry> { it.sitemapLastmod ?: Instant.EPOCH }.thenBy { it.url })
+            val seedItems = sortedCandidates
                 .take(properties.source.firstRunSeedLimit)
                 .map { PostWorkItem(it, PostWorkMode.SEED) }
+            val baselineItems = sortedCandidates
+                .drop(properties.source.firstRunSeedLimit)
+                .map { PostWorkItem(it, PostWorkMode.BASELINE) }
             return PostStatePlan(
-                workItems = seedItems,
-                skippedCount = candidates.size - seedItems.size,
+                workItems = seedItems + baselineItems,
+                skippedCount = 0,
             )
         }
 
@@ -56,6 +60,7 @@ class PostStateService(
             val post = insertArticle(workItem, article, processingStatus = ProcessingStatus.SEEDED.name)
             PostApplyResult(PostApplyKind.SEEDED, article.url, post)
         }
+        PostWorkMode.BASELINE -> baselineArticle(workItem)
         PostWorkMode.NEW -> {
             val post = insertArticle(workItem, article, processingStatus = ProcessingStatus.DISCOVERED.name)
             PostApplyResult(PostApplyKind.NEW, article.url, post)
@@ -98,6 +103,21 @@ class PostStateService(
                 processingStatus = processingStatus,
             ),
         )
+
+    fun baseline(workItem: PostWorkItem): PostApplyResult = baselineArticle(workItem)
+
+    private fun baselineArticle(workItem: PostWorkItem): PostApplyResult {
+        val post = postRepository.save(
+            PostRecord(
+                url = workItem.entry.url,
+                sourceType = workItem.entry.sourceType.name,
+                sitemapLastmod = workItem.entry.sitemapLastmod,
+                discoveredAt = workItem.entry.discoveredAt,
+                processingStatus = ProcessingStatus.SEEDED.name,
+            ),
+        )
+        return PostApplyResult(PostApplyKind.SEEDED, workItem.entry.url, post)
+    }
 
     private fun updateKnownArticle(workItem: PostWorkItem, article: ExtractedArticle): PostApplyResult {
         val existing = postRepository.findByUrl(article.url)
@@ -176,6 +196,7 @@ data class PostWorkItem(
 
 enum class PostWorkMode {
     SEED,
+    BASELINE,
     NEW,
     UPDATE_CHECK,
 }

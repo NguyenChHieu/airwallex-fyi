@@ -28,14 +28,15 @@ class PostStateServiceTest @Autowired constructor(
     }
 
     @Test
-    fun `empty database seeds only the configured recent baseline`() {
+    fun `empty database extracts recent seed limit and baselines older urls`() {
         val candidates = (0 until 30).map { candidate(it) }
 
         val plan = postStateService.planWork(candidates)
 
-        assertThat(plan.workItems).hasSize(25)
-        assertThat(plan.workItems).allSatisfy { item -> assertThat(item.mode).isEqualTo(PostWorkMode.SEED) }
-        assertThat(plan.skippedCount).isEqualTo(5)
+        assertThat(plan.workItems).hasSize(30)
+        assertThat(plan.workItems.take(25)).allSatisfy { item -> assertThat(item.mode).isEqualTo(PostWorkMode.SEED) }
+        assertThat(plan.workItems.drop(25)).allSatisfy { item -> assertThat(item.mode).isEqualTo(PostWorkMode.BASELINE) }
+        assertThat(plan.skippedCount).isZero()
         assertThat(plan.workItems.first().entry.url).endsWith("/article-29")
 
         plan.workItems.forEach { item ->
@@ -43,10 +44,27 @@ class PostStateServiceTest @Autowired constructor(
                 .isEqualTo(PostApplyKind.SEEDED)
         }
 
-        assertThat(postRepository.count()).isEqualTo(25)
+        assertThat(postRepository.count()).isEqualTo(30)
         assertThat(postRepository.findByUrl("https://www.airwallex.com/global/blog/article-29")?.processingStatus)
             .isEqualTo("SEEDED")
-        assertThat(postRepository.findByUrl("https://www.airwallex.com/global/blog/article-0")).isNull()
+        val baselined = postRepository.findByUrl("https://www.airwallex.com/global/blog/article-0")
+        assertThat(baselined?.processingStatus).isEqualTo("SEEDED")
+        assertThat(baselined?.articleBody).isNull()
+        assertThat(baselined?.contentHash).isNull()
+    }
+
+    @Test
+    fun `second run after partial seed baseline treats older urls as known`() {
+        val candidates = (0 until 30).map { candidate(it) }
+        postStateService.planWork(candidates).workItems.forEach { item ->
+            postStateService.apply(item, articleFor(item.entry))
+        }
+
+        val secondPlan = postStateService.planWork(candidates)
+
+        assertThat(secondPlan.workItems).isEmpty()
+        assertThat(secondPlan.skippedCount).isEqualTo(30)
+        assertThat(postRepository.count()).isEqualTo(30)
     }
 
     @Test
