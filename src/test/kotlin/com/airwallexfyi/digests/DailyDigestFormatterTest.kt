@@ -40,9 +40,9 @@ class DailyDigestFormatterTest {
         assertThat(payload.body).contains("1. First Airwallex update")
         assertThat(payload.body).contains("2. Second Airwallex update")
         assertThat(payload.body).contains("- First useful point")
-        assertThat(payload.body).contains("- Second useful point")
+        assertThat(payload.body).doesNotContain("Second useful point")
         assertThat(payload.body).doesNotContain("Third useful point")
-        assertThat(payload.body).contains("Why it matters: It helps teams track payment operations.")
+        assertThat(payload.body).contains("Why: It helps teams track payment operations.")
         assertThat(payload.body).contains("Link: https://www.airwallex.com/global/blog/first-update")
         assertThat(payload.body).contains("Link: https://www.airwallex.com/global/newsroom/second-update")
         assertThat(payload.preview).isEqualTo(payload.body)
@@ -83,6 +83,13 @@ class DailyDigestFormatterTest {
                     bullets = listOf("B".repeat(180), "C".repeat(180), "D".repeat(180)),
                     whyItMatters = "E".repeat(180),
                 ),
+                item(
+                    url = "https://www.airwallex.com/global/newsroom/another-long-update",
+                    headline = "F".repeat(180),
+                    bullets = listOf("G".repeat(180), "H".repeat(180), "I".repeat(180)),
+                    whyItMatters = "J".repeat(180),
+                    sourceType = SourceType.NEWSROOM,
+                ),
             ),
             "whatsapp:+15550000002",
             LocalDate.of(2026, 6, 22),
@@ -90,6 +97,29 @@ class DailyDigestFormatterTest {
 
         assertThat(payload.preview).hasSize(500)
         assertThat(payload.preview).endsWith("...")
+    }
+
+    @Test
+    fun `keeps digest body under Twilio WhatsApp limit`() {
+        val items = (1..8).map { index ->
+            item(
+                url = "https://www.airwallex.com/global/newsroom/very-long-update-$index-with-extra-url-characters-for-budget-testing",
+                headline = "Long Airwallex update $index " + "A".repeat(220),
+                bullets = listOf(
+                    "Useful detail $index " + "B".repeat(220),
+                    "Second detail " + "C".repeat(220),
+                    "Third detail " + "E".repeat(220),
+                ),
+                whyItMatters = "Important context $index " + "D".repeat(260),
+                sourceType = SourceType.NEWSROOM,
+            )
+        }
+
+        val payload = formatter.formatDigest(items, "whatsapp:+15550000002", LocalDate.of(2026, 6, 22))
+
+        assertThat(payload.body.length).isLessThanOrEqualTo(DailyDigestFormatter.MAX_WHATSAPP_BODY_CHARS)
+        assertThat(payload.body).contains("+")
+        assertThat(payload.body).contains("more update(s) ready")
     }
 
     private fun item(

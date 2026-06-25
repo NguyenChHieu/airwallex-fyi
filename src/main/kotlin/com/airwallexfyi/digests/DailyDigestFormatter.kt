@@ -21,13 +21,22 @@ class DailyDigestFormatter(
             appendLine("Airwallex FYI - ${localDate}")
             items.forEachIndexed { index, item ->
                 val summary = item.summary.toStructuredSummary(objectMapper)
-                appendLine()
-                appendLine("${index + 1}. ${summary.headline.cleanInline()}")
-                summary.bullets.take(MAX_BULLETS_PER_POST).forEach { bullet ->
-                    appendLine("- ${bullet.cleanInline()}")
+                val section = buildString {
+                    appendLine()
+                    appendLine("${index + 1}. ${summary.headline.boundedInline(MAX_HEADLINE_CHARS)}")
+                    summary.bullets.take(MAX_BULLETS_PER_POST).forEach { bullet ->
+                        appendLine("- ${bullet.boundedInline(MAX_BULLET_CHARS)}")
+                    }
+                    appendLine("Why: ${summary.whyItMatters.boundedInline(MAX_WHY_CHARS)}")
+                    appendLine("Link: ${item.post.url}")
                 }
-                appendLine("Why it matters: ${summary.whyItMatters.cleanInline()}")
-                appendLine("Link: ${item.post.url}")
+                val remainingCount = items.size - index - 1
+                val omittedLine = if (remainingCount > 0) "\n+ $remainingCount more update(s) ready in Airwallex FYI." else ""
+                if (length + section.length + omittedLine.length > MAX_WHATSAPP_BODY_CHARS) {
+                    appendOmittedLineIfFits(remainingCount + 1)
+                    return@buildString
+                }
+                append(section)
             }
         }.trimEnd()
 
@@ -50,14 +59,31 @@ class DailyDigestFormatter(
 
     private fun String.cleanInline(): String = trim().replace(WHITESPACE, " ")
 
+    private fun String.boundedInline(maxLength: Int): String {
+        val cleaned = cleanInline()
+        return if (cleaned.length <= maxLength) cleaned else cleaned.take(maxLength - 3).trimEnd() + "..."
+    }
+
+    private fun StringBuilder.appendOmittedLineIfFits(omittedCount: Int) {
+        if (omittedCount <= 0) return
+        val line = "\n\n+ $omittedCount more update(s) ready in Airwallex FYI."
+        if (length + line.length <= MAX_WHATSAPP_BODY_CHARS) {
+            append(line)
+        }
+    }
+
     private fun String.boundedPreview(): String =
         if (length <= PREVIEW_LIMIT) this else take(PREVIEW_LIMIT - 3) + "..."
 
     companion object {
         const val CHANNEL: String = "whatsapp"
         const val NO_CHANGES_TEXT: String = "Airwallex FYI: No new public Blog or Newsroom updates today."
+        const val MAX_WHATSAPP_BODY_CHARS = 1500
         private const val PREVIEW_LIMIT = 500
-        private const val MAX_BULLETS_PER_POST = 2
+        private const val MAX_BULLETS_PER_POST = 1
+        private const val MAX_HEADLINE_CHARS = 110
+        private const val MAX_BULLET_CHARS = 100
+        private const val MAX_WHY_CHARS = 120
         private val WHITESPACE = Regex("\\s+")
     }
 }
