@@ -123,7 +123,7 @@ For real summaries, set:
 
 ```text
 AI_PROVIDER=gemini
-AI_MODEL=gemini-3.5-flash
+AI_MODEL=gemini-2.5-flash
 GEMINI_API_KEY=
 ```
 

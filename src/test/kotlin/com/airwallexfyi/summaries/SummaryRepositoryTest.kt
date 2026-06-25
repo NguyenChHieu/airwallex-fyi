@@ -88,7 +88,7 @@ class SummaryRepositoryTest @Autowired constructor(
             SummaryRecord.from(
                 postId = post.identifier(),
                 summary = summary,
-                model = "gemini-3.5-flash",
+                model = "gemini-2.5-flash",
                 promptVersion = "gemini-summary-v1",
                 objectMapper = objectMapper,
                 now = Instant.parse("2026-06-21T00:00:00Z"),
@@ -116,12 +116,12 @@ class SummaryRepositoryTest @Autowired constructor(
             tags = listOf("test"),
             sourceType = SourceType.BLOG,
         )
-        val record = SummaryRecord.from(post.identifier(), summary, "gemini-3.5-flash", "gemini-summary-v1", objectMapper)
+        val record = SummaryRecord.from(post.identifier(), summary, "gemini-2.5-flash", "gemini-summary-v1", objectMapper)
 
         summaryRepository.save(record)
 
         assertThatThrownBy {
-            summaryRepository.save(SummaryRecord.from(post.identifier(), summary, "gemini-3.5-flash", "gemini-summary-v1", objectMapper))
+            summaryRepository.save(SummaryRecord.from(post.identifier(), summary, "gemini-2.5-flash", "gemini-summary-v1", objectMapper))
         }.isInstanceOf(DataIntegrityViolationException::class.java)
     }
 

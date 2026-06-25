@@ -58,7 +58,7 @@ class AppPropertiesTest {
             assertThat(properties.dryRun).isTrue()
             assertThat(properties.scheduler.enabled).isFalse()
             assertThat(properties.ai.provider).isEqualTo("gemini")
-            assertThat(properties.ai.model).isEqualTo("gemini-3.5-flash")
+            assertThat(properties.ai.model).isEqualTo("gemini-2.5-flash")
             assertThat(properties.gemini.apiKey).isBlank()
             assertThat(properties.twilio.authToken).isBlank()
             assertThat(properties.digest.timeZone).isEqualTo("Australia/Sydney")

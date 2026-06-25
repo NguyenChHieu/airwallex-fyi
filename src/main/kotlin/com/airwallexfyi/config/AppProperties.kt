@@ -20,7 +20,7 @@ data class AppProperties(
 ) {
     data class Ai(
         val provider: String = "gemini",
-        val model: String = "gemini-3.5-flash",
+        val model: String = "gemini-2.5-flash",
     )
 
     data class Gemini(

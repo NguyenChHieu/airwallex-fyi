@@ -13,7 +13,7 @@ spring:
 airwallex-fyi:
   ai:
     provider: ${AI_PROVIDER:gemini}
-    model: ${AI_MODEL:gemini-3.5-flash}
+    model: ${AI_MODEL:gemini-2.5-flash}
   gemini:
     api-key: ${GEMINI_API_KEY:}
   twilio:

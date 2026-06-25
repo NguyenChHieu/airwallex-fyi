@@ -36,12 +36,8 @@ class GeminiSummaryClient(
             ),
         ),
         "generationConfig" to mapOf(
-            "responseFormat" to mapOf(
-                "text" to mapOf(
-                    "mimeType" to "application/json",
-                    "schema" to summarySchema(),
-                ),
-            ),
+            "responseMimeType" to "application/json",
+            "responseSchema" to summarySchema(),
         ),
     )
 
