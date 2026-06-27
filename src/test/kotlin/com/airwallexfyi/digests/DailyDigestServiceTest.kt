@@ -3,6 +3,7 @@ package com.airwallexfyi.digests
 import com.airwallexfyi.config.AppProperties
 import com.airwallexfyi.notifications.NotificationResult
 import com.airwallexfyi.notifications.NotificationStatus
+import com.airwallexfyi.notifications.TelegramNotifier
 import com.airwallexfyi.notifications.WhatsAppAlertPayload
 import com.airwallexfyi.notifications.WhatsAppNotifier
 import com.airwallexfyi.posts.PostRecord
@@ -75,6 +76,28 @@ class DailyDigestServiceTest @Autowired constructor(
         }
         assertThat(linkedPostIds(firstChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
         assertThat(linkedPostIds(secondChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
+    }
+
+    @Test
+    fun `sends telegram subscriber digest through telegram notifier`() {
+        val channel = createChannel("123456789", SubscriberChannelType.TELEGRAM)
+        val summarized = createSummarizedPost("https://www.airwallex.com/global/blog/telegram-${System.nanoTime()}")
+        val whatsAppNotifier = FakeWhatsAppNotifier()
+        val telegramNotifier = FakeTelegramNotifier()
+        val service = service(whatsAppNotifier, telegramNotifier)
+
+        val result = service.sendDailyDigests(Instant.parse("2026-06-22T01:00:00Z"))
+
+        val delivery = requireNotNull(
+            digestDeliveryRepository.findBySubscriberChannelIdAndLocalDate(channel.identifier(), LocalDate.of(2026, 6, 22)),
+        )
+        assertThat(result.digestSentCount).isEqualTo(1)
+        assertThat(result.noChangeCount).isZero()
+        assertThat(whatsAppNotifier.payloads).isEmpty()
+        assertThat(telegramNotifier.payloads.single().recipient).isEqualTo("123456789")
+        assertThat(telegramNotifier.payloads.single().body).contains("Link: ${summarized.post.url}")
+        assertThat(delivery.channel).isEqualTo(SubscriberChannelType.TELEGRAM)
+        assertThat(delivery.status).isEqualTo(DigestDeliveryStatus.DRY_RUN)
     }
 
     @Test
@@ -162,6 +185,7 @@ class DailyDigestServiceTest @Autowired constructor(
 
     private fun service(
         notifier: FakeWhatsAppNotifier,
+        telegramNotifier: FakeTelegramNotifier = FakeTelegramNotifier(),
         properties: AppProperties = AppProperties(),
     ): DailyDigestService = DailyDigestService(
         properties = properties,
@@ -171,9 +195,10 @@ class DailyDigestServiceTest @Autowired constructor(
         digestEligibilityService = digestEligibilityService,
         dailyDigestFormatter = DailyDigestFormatter(objectMapper),
         whatsAppNotifier = notifier,
+        telegramNotifier = telegramNotifier,
     )
 
-    private fun createChannel(recipient: String): SubscriberChannelRecord {
+    private fun createChannel(recipient: String, channel: String = SubscriberChannelType.WHATSAPP): SubscriberChannelRecord {
         val now = Instant.parse("2026-06-22T00:00:00Z")
         val subscriber = subscriberRepository.save(
             SubscriberRecord(displayName = "Subscriber $recipient", createdAt = now, updatedAt = now),
@@ -181,7 +206,7 @@ class DailyDigestServiceTest @Autowired constructor(
         return subscriberChannelRepository.save(
             SubscriberChannelRecord(
                 subscriberId = subscriber.identifier(),
-                channel = SubscriberChannelType.WHATSAPP,
+                channel = channel,
                 recipient = recipient,
                 status = SubscriberStatus.ACTIVE,
                 createdAt = now,
@@ -244,6 +269,19 @@ class DailyDigestServiceTest @Autowired constructor(
                     twilioCalled = false,
                 )
             }
+            return NotificationResult(
+                status = NotificationStatus.DRY_RUN,
+                payloadPreview = payload.preview,
+                twilioCalled = false,
+            )
+        }
+    }
+
+    private class FakeTelegramNotifier : TelegramNotifier {
+        val payloads: MutableList<WhatsAppAlertPayload> = mutableListOf()
+
+        override fun send(payload: WhatsAppAlertPayload): NotificationResult {
+            payloads += payload
             return NotificationResult(
                 status = NotificationStatus.DRY_RUN,
                 payloadPreview = payload.preview,

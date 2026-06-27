@@ -3,6 +3,7 @@ package com.airwallexfyi.digests
 import com.airwallexfyi.config.AppProperties
 import com.airwallexfyi.notifications.NotificationResult
 import com.airwallexfyi.notifications.NotificationStatus
+import com.airwallexfyi.notifications.TelegramNotifier
 import com.airwallexfyi.notifications.WhatsAppAlertPayload
 import com.airwallexfyi.notifications.WhatsAppNotifier
 import com.airwallexfyi.subscribers.SubscriberChannelRecord
@@ -23,14 +24,16 @@ class DailyDigestService(
     private val digestEligibilityService: DigestEligibilityService,
     private val dailyDigestFormatter: DailyDigestFormatter,
     private val whatsAppNotifier: WhatsAppNotifier,
+    private val telegramNotifier: TelegramNotifier,
 ) {
     fun sendDailyDigests(now: Instant = Instant.now()): DailyDigestRunResult {
         val localDate = LocalDate.ofInstant(now, ZoneId.of(properties.digest.timeZone))
         val counters = DailyDigestCounters()
-        val channels = subscriberChannelRepository.findByChannelAndStatusOrderByCreatedAtAsc(
-            SubscriberChannelType.WHATSAPP,
-            SubscriberStatus.ACTIVE,
-        )
+        val channels = SUPPORTED_CHANNELS
+            .flatMap { channel ->
+                subscriberChannelRepository.findByChannelAndStatusOrderByCreatedAtAsc(channel, SubscriberStatus.ACTIVE)
+            }
+            .sortedBy { it.createdAt }
 
         channels.forEach { subscriberChannel ->
             sendForChannel(subscriberChannel, localDate, now, counters)
@@ -72,7 +75,7 @@ class DailyDigestService(
         }
 
         val notificationResult = try {
-            whatsAppNotifier.send(payload)
+            sendNotification(subscriberChannel, payload)
         } catch (ex: RuntimeException) {
             NotificationResult(
                 status = NotificationStatus.FAILED,
@@ -129,6 +132,18 @@ class DailyDigestService(
         }
     }
 
+    private fun sendNotification(subscriberChannel: SubscriberChannelRecord, payload: WhatsAppAlertPayload): NotificationResult =
+        when (subscriberChannel.channel) {
+            SubscriberChannelType.WHATSAPP -> whatsAppNotifier.send(payload)
+            SubscriberChannelType.TELEGRAM -> telegramNotifier.send(payload)
+            else -> NotificationResult(
+                status = NotificationStatus.FAILED,
+                payloadPreview = payload.preview,
+                errorMessage = "Unsupported subscriber channel: ${subscriberChannel.channel}",
+                twilioCalled = false,
+            )
+        }
+
     private fun Throwable.sanitizedReason(): String =
         (message ?: javaClass.simpleName).lineSequence().firstOrNull()?.take(ERROR_LIMIT) ?: javaClass.simpleName
 
@@ -163,6 +178,7 @@ class DailyDigestService(
     private companion object {
         const val ERROR_LIMIT = 240
         const val SAMPLE_LIMIT = 5
+        val SUPPORTED_CHANNELS = listOf(SubscriberChannelType.WHATSAPP, SubscriberChannelType.TELEGRAM)
 
         fun MutableList<String>.addBounded(value: String) {
             if (size < SAMPLE_LIMIT) {

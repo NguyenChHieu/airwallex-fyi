@@ -22,6 +22,9 @@ airwallex-fyi:
     whatsapp-from: ${TWILIO_WHATSAPP_FROM:}
   whatsapp:
     to: ${WHATSAPP_TO:}
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    chat-id: ${TELEGRAM_CHAT_ID:}
   digest:
     time-zone: ${DIGEST_TIME_ZONE:Australia/Sydney}
   scheduler:

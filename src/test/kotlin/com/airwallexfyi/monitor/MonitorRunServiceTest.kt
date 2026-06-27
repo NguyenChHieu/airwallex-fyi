@@ -14,6 +14,7 @@ import com.airwallexfyi.digests.DigestEligibilityService
 import com.airwallexfyi.digests.DigestMessageType
 import com.airwallexfyi.notifications.NotificationResult
 import com.airwallexfyi.notifications.NotificationStatus
+import com.airwallexfyi.notifications.TelegramNotifier
 import com.airwallexfyi.notifications.WhatsAppAlertPayload
 import com.airwallexfyi.notifications.WhatsAppNotifier
 import com.airwallexfyi.posts.PostRecord
@@ -394,6 +395,7 @@ class MonitorRunServiceTest @Autowired constructor(
         articleBodies: Map<String, String>,
         aiClient: FakeAiSummaryClient = FakeAiSummaryClient(summary()),
         notifier: FakeWhatsAppNotifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN),
+        telegramNotifier: FakeTelegramNotifier = FakeTelegramNotifier(),
         properties: AppProperties = testProperties(),
         sourceDiscoveryService: AirwallexSourceDiscoveryService = AirwallexSourceDiscoveryService(properties, StaticHttpClient(sitemapXml)),
     ): MonitorRunService {
@@ -414,6 +416,7 @@ class MonitorRunServiceTest @Autowired constructor(
                 digestEligibilityService = eligibilityService,
                 dailyDigestFormatter = DailyDigestFormatter(objectMapper),
                 whatsAppNotifier = notifier,
+                telegramNotifier = telegramNotifier,
             ),
         )
     }
@@ -556,6 +559,14 @@ class MonitorRunServiceTest @Autowired constructor(
                 twilioCalled = twilioCalled,
             )
         }
+    }
+
+    private class FakeTelegramNotifier : TelegramNotifier {
+        override fun send(payload: WhatsAppAlertPayload): NotificationResult = NotificationResult(
+            status = NotificationStatus.DRY_RUN,
+            payloadPreview = payload.preview,
+            twilioCalled = false,
+        )
     }
 }
 

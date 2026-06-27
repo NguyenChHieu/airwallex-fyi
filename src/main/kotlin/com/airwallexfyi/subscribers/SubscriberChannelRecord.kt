@@ -10,6 +10,7 @@ import org.springframework.data.relational.core.mapping.Table
 
 object SubscriberChannelType {
     const val WHATSAPP: String = "whatsapp"
+    const val TELEGRAM: String = "telegram"
 }
 
 @Table("subscriber_channels")

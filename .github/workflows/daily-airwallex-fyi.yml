@@ -1,0 +1,49 @@
+name: Daily Airwallex FYI
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron uses UTC. This is about 8am in Sydney during AEST, 9am during AEDT.
+    - cron: "0 22 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: airwallex-fyi-daily
+  cancel-in-progress: false
+
+jobs:
+  run-once:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+      DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+      DATABASE_DRIVER: org.postgresql.Driver
+      AI_PROVIDER: gemini
+      AI_MODEL: gemini-2.5-flash
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      WHATSAPP_TO: ""
+      DIGEST_TIME_ZONE: Australia/Sydney
+      DRY_RUN: "false"
+      SCHEDULER_ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Run monitor once
+        run: ./gradlew --no-daemon bootRun --args="--run-once"

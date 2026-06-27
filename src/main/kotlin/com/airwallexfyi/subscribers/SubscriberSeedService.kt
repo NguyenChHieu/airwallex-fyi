@@ -13,11 +13,25 @@ class SubscriberSeedService(
 ) {
     @Transactional
     fun seedDefaultSubscriberIfConfigured(now: Instant = Instant.now()): Boolean {
-        val recipient = properties.whatsapp.to.trim()
+        val whatsappSeeded = seedConfiguredChannel(
+            channel = SubscriberChannelType.WHATSAPP,
+            recipient = properties.whatsapp.to.trim(),
+            now = now,
+        )
+        val telegramSeeded = seedConfiguredChannel(
+            channel = SubscriberChannelType.TELEGRAM,
+            recipient = properties.telegram.chatId.trim(),
+            now = now,
+        )
+
+        return whatsappSeeded || telegramSeeded
+    }
+
+    private fun seedConfiguredChannel(channel: String, recipient: String, now: Instant): Boolean {
         if (recipient.isBlank()) return false
 
         val existingChannel = subscriberChannelRepository.findByChannelAndRecipient(
-            SubscriberChannelType.WHATSAPP,
+            channel,
             recipient,
         )
         if (existingChannel != null) return false
@@ -33,7 +47,7 @@ class SubscriberSeedService(
         subscriberChannelRepository.save(
             SubscriberChannelRecord(
                 subscriberId = subscriber.identifier(),
-                channel = SubscriberChannelType.WHATSAPP,
+                channel = channel,
                 recipient = recipient,
                 status = SubscriberStatus.ACTIVE,
                 createdAt = now,

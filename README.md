@@ -1,8 +1,8 @@
 # Airwallex FYI
 
-Airwallex FYI is a Kotlin Spring Boot service that watches public Airwallex Blog and Newsroom updates, stores canonical posts and summaries once, and sends subscriber-facing WhatsApp daily digests from that central state.
+Airwallex FYI is a Kotlin Spring Boot service that watches public Airwallex Blog and Newsroom updates, stores canonical posts and summaries once, and sends subscriber-facing WhatsApp or Telegram daily digests from that central state.
 
-Current scope is WhatsApp-first. Slack, chatbot interactions, Supabase/admin subscriber UI, production WhatsApp templates, and multi-instance scheduler locking are deferred.
+Current scope supports Twilio WhatsApp Sandbox and free Telegram bot delivery. Slack, chatbot interactions, Supabase/admin subscriber UI, production WhatsApp templates, and multi-instance scheduler locking are deferred.
 
 ## Requirements
 
@@ -12,6 +12,16 @@ Current scope is WhatsApp-first. Slack, chatbot interactions, Supabase/admin sub
 ## Local Setup
 
 Use `.env.example` as the environment-variable reference, then put your local secrets in `.env`. The app imports `.env` automatically when it exists, and `.env` is ignored by Git.
+
+Example `.env` entries for the free Telegram path:
+
+```properties
+TELEGRAM_BOT_TOKEN=123456:your_bot_token
+TELEGRAM_CHAT_ID=123456789
+WHATSAPP_TO=
+DRY_RUN=false
+SCHEDULER_ENABLED=false
+```
 
 Example `.env` entries for a Twilio Sandbox smoke test:
 
@@ -62,7 +72,7 @@ Run the deterministic smoke test:
 ./gradlew.bat test --tests "*RunOnceSmokeTest"
 ```
 
-The smoke test uses fixture Airwallex sitemap/article HTML, fake AI summaries, and a dry-run notifier. It does not call live Airwallex, Gemini, or Twilio.
+The smoke test uses fixture Airwallex sitemap/article HTML, fake AI summaries, and a dry-run notifier. It does not call live Airwallex, Gemini, Twilio, or Telegram.
 
 ## Run One Check
 
@@ -86,7 +96,7 @@ With the default config, the scheduler is disabled, so normal startup exposes th
 
 ## Scheduled Polling
 
-Scheduled polling is opt-in. For a daily fixed-delay interval:
+Scheduled polling is opt-in. For local testing with a long-running process:
 
 ```powershell
 $env:SCHEDULER_ENABLED="true"
@@ -102,6 +112,37 @@ SCHEDULER_FIXED_DELAY=86400000
 ```
 
 The MVP assumes one running scheduler instance. If later deployment runs multiple app instances, add a DB/distributed lock before enabling more than one scheduler.
+
+## GitHub Actions Daily Job
+
+For the cheapest MVP deployment, use the included GitHub Actions workflow instead of a long-running server. It wakes up once per day, runs the monitor with `--run-once`, sends any Telegram digest, then exits.
+
+The workflow lives at `.github/workflows/daily-airwallex-fyi.yml` and also supports manual runs from the GitHub Actions tab. Its cron is `0 22 * * *` UTC, which is about 8am in Sydney during AEST and 9am during AEDT.
+
+Add these repository secrets in GitHub under `Settings -> Secrets and variables -> Actions -> New repository secret`:
+
+```text
+DATABASE_URL
+DATABASE_USERNAME
+DATABASE_PASSWORD
+GEMINI_API_KEY
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+```
+
+Use the same Supabase database values from your local `.env`. `DATABASE_URL` should be the JDBC URL, for example:
+
+```text
+jdbc:postgresql://HOST:5432/postgres?sslmode=require
+```
+
+After pushing the workflow, test it manually:
+
+1. Open the GitHub repo.
+2. Go to `Actions`.
+3. Select `Daily Airwallex FYI`.
+4. Click `Run workflow`.
+5. Check the logs and Telegram message.
 
 ## Admin Endpoints
 
@@ -129,9 +170,29 @@ GEMINI_API_KEY=
 
 Keep `GEMINI_API_KEY` blank for local tests. Set it only in your local shell, IDE, or host secrets.
 
+## Telegram Setup
+
+Telegram is the simplest free delivery path for this project:
+
+1. In Telegram, message `@BotFather`.
+2. Send `/newbot`, follow the prompts, and copy the bot token.
+3. Open your new bot chat and send `/start`.
+4. In a browser, open `https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates`.
+5. Copy `message.chat.id` from the JSON response.
+6. Put these values in `.env`:
+
+```text
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+WHATSAPP_TO=
+DRY_RUN=false
+```
+
+Leave `WHATSAPP_TO` blank if you only want Telegram. If both `WHATSAPP_TO` and `TELEGRAM_CHAT_ID` are set, the app seeds both subscriber channels and sends the daily digest to both.
+
 ## Twilio Sandbox Setup
 
-For WhatsApp Sandbox delivery, set:
+For optional WhatsApp Sandbox delivery, set:
 
 ```text
 TWILIO_ACCOUNT_SID=
@@ -144,6 +205,6 @@ Twilio WhatsApp values should use `whatsapp:+...` format. Keep `DRY_RUN=true` un
 
 ## Deployment Notes
 
-Deploy as a long-running Spring Boot service with environment variables supplied by the host. Keep `SCHEDULER_ENABLED=false` until the service is configured and verified with `--run-once` or the fixture-backed smoke test. When ready for unattended polling, enable one scheduler instance with a fixed delay such as `86400000` milliseconds for daily checks.
+For the MVP, prefer GitHub Actions as a scheduled job so there is no always-on server. Keep `SCHEDULER_ENABLED=false` in scheduled jobs because GitHub Actions should run once and exit.
 
-This phase does not require Docker, Railway, Render, Fly.io, Supabase, or GitHub Actions. Those can be added later after choosing a target deployment path.
+If you later deploy as a long-running Spring Boot service, supply environment variables through the host. Keep `SCHEDULER_ENABLED=false` until the service is configured and verified with `--run-once` or the fixture-backed smoke test. When ready for unattended polling, enable one scheduler instance with a fixed delay such as `86400000` milliseconds for daily checks.

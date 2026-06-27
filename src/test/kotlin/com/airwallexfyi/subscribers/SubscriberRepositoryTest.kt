@@ -116,6 +116,26 @@ class SubscriberRepositoryTest @Autowired constructor(
     }
 
     @Test
+    fun `seed service creates default telegram subscriber channel from config`() {
+        val telegramSeedService = SubscriberSeedService(
+            AppProperties(telegram = AppProperties.Telegram(botToken = "test-token", chatId = "123456789")),
+            subscriberRepository,
+            subscriberChannelRepository,
+        )
+
+        val created = telegramSeedService.seedDefaultSubscriberIfConfigured(Instant.parse("2026-06-22T01:00:00Z"))
+
+        assertThat(created).isTrue()
+        assertThat(subscriberRepository.count()).isEqualTo(1)
+        assertThat(subscriberChannelRepository.count()).isEqualTo(1)
+        val channel = subscriberChannelRepository.findByChannelAndRecipient(
+            SubscriberChannelType.TELEGRAM,
+            "123456789",
+        )
+        assertThat(channel?.status).isEqualTo(SubscriberStatus.ACTIVE)
+    }
+
+    @Test
     fun `seed service is idempotent and does not overwrite matching channel`() {
         val first = subscriberSeedService.seedDefaultSubscriberIfConfigured(Instant.parse("2026-06-22T01:00:00Z"))
         val second = subscriberSeedService.seedDefaultSubscriberIfConfigured(Instant.parse("2026-06-23T01:00:00Z"))

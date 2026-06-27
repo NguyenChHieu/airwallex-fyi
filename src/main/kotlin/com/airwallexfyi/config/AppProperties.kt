@@ -12,6 +12,7 @@ data class AppProperties(
     @field:Valid val gemini: Gemini = Gemini(),
     @field:Valid val twilio: Twilio = Twilio(),
     @field:Valid val whatsapp: WhatsApp = WhatsApp(),
+    @field:Valid val telegram: Telegram = Telegram(),
     @field:Valid val digest: Digest = Digest(),
     @field:Valid val scheduler: Scheduler = Scheduler(),
     @field:Valid val source: Source = Source(),
@@ -35,6 +36,11 @@ data class AppProperties(
 
     data class WhatsApp(
         val to: String = "",
+    )
+
+    data class Telegram(
+        val botToken: String = "",
+        val chatId: String = "",
     )
 
     data class Digest(
