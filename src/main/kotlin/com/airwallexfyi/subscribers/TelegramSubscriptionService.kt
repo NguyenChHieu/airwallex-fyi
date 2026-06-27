@@ -6,6 +6,7 @@ import com.airwallexfyi.notifications.TelegramTransport
 import com.airwallexfyi.notifications.TelegramUpdate
 import com.airwallexfyi.state.AppStateRepository
 import java.time.Instant
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
@@ -16,15 +17,19 @@ class TelegramSubscriptionService(
     private val subscriberRepository: SubscriberRepository,
     private val subscriberChannelRepository: SubscriberChannelRepository,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     fun syncSubscriptions(now: Instant = Instant.now()): TelegramSubscriptionSyncResult {
         if (properties.dryRun || properties.telegram.botToken.isBlank()) {
             return TelegramSubscriptionSyncResult(skipped = true)
         }
 
+        val offset = nextOffset()
+        logger.info("Telegram subscription getUpdates started: offset={}", offset)
         val updates = try {
             telegramTransport.getUpdates(
                 botToken = properties.telegram.botToken,
-                offset = nextOffset(),
+                offset = offset,
             )
         } catch (ex: RuntimeException) {
             return TelegramSubscriptionSyncResult(
@@ -32,6 +37,7 @@ class TelegramSubscriptionService(
                 sampleErrors = listOf("Telegram subscription sync failed: ${ex.sanitizedReason()}"),
             )
         }
+        logger.info("Telegram subscription getUpdates completed: updates={}", updates.size)
 
         val counters = TelegramSubscriptionCounters()
         updates.sortedBy { it.updateId }.forEach { update ->

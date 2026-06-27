@@ -1,6 +1,7 @@
 package com.airwallexfyi.notifications
 
 import com.airwallexfyi.config.AppProperties
+import com.airwallexfyi.http.RestClientTimeouts
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -62,6 +63,7 @@ class RestClientTwilioTransport(
 ) : TwilioTransport {
     private val restClient = RestClient.builder()
         .baseUrl("https://api.twilio.com")
+        .requestFactory(RestClientTimeouts.requestFactory())
         .build()
 
     override fun sendMessage(accountSid: String, authToken: String, from: String, to: String, body: String): TwilioSendResponse {

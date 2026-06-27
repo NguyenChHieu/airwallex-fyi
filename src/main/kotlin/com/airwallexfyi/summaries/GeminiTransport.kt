@@ -1,5 +1,6 @@
 package com.airwallexfyi.summaries
 
+import com.airwallexfyi.http.RestClientTimeouts
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -14,6 +15,7 @@ interface GeminiTransport {
 class RestClientGeminiTransport : GeminiTransport {
     private val restClient = RestClient.builder()
         .baseUrl("https://generativelanguage.googleapis.com")
+        .requestFactory(RestClientTimeouts.requestFactory())
         .build()
 
     override fun generateContent(model: String, apiKey: String, requestBody: Map<String, Any>): String {
