@@ -160,6 +160,23 @@ class MonitorRunServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `skipped known urls are not rescanned for missing summary approvals`() {
+        val url = blogUrl("old-missing-summary")
+        val known = saveKnownPost(url)
+        postStateService.updateProcessingStatus(known.identifier(), ProcessingStatus.DISCOVERED)
+        val service = monitorService(
+            sitemapXml = sitemap(listOf(url), lastmod = requireNotNull(known.sitemapLastmod)),
+            articleBodies = emptyMap(),
+        )
+
+        val result = service.runOnce()
+
+        assertThat(result.skippedCount).isEqualTo(1)
+        assertThat(result.approvalNeededCount).isZero()
+        assertThat(postRepository.findByUrl(url)?.processingStatus).isEqualTo(ProcessingStatus.DISCOVERED.name)
+    }
+
+    @Test
     fun `second run with a new url summarizes once and sends one digest`() {
         saveKnownPost(blogUrl("already-known"))
         val newUrl = blogUrl("fresh-update")
@@ -412,7 +429,6 @@ class MonitorRunServiceTest @Autowired constructor(
             sourceDiscoveryService = sourceDiscoveryService,
             articleExtractor = articleExtractor(articleBodies),
             postStateService = postStateService,
-            postRepository = postRepository,
             summaryRepository = summaryRepository,
             articleSummaryService = summaryService(aiClient, properties),
             subscriberSeedService = SubscriberSeedService(properties, subscriberRepository, subscriberChannelRepository),

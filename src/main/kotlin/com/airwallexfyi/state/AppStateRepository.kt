@@ -1,5 +1,6 @@
 package com.airwallexfyi.state
 
+import java.sql.Timestamp
 import java.time.Instant
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.jdbc.core.JdbcTemplate
@@ -20,6 +21,7 @@ class AppStateRepository(
     ).firstOrNull()
 
     fun putValue(key: String, value: String, now: Instant = Instant.now()) {
+        val updatedAt = Timestamp.from(now)
         val updated = jdbcTemplate.update(
             """
             UPDATE app_state
@@ -27,7 +29,7 @@ class AppStateRepository(
             WHERE state_key = ?
             """.trimIndent(),
             value,
-            now,
+            updatedAt,
             key,
         )
         if (updated > 0) return
@@ -40,7 +42,7 @@ class AppStateRepository(
                 """.trimIndent(),
                 key,
                 value,
-                now,
+                updatedAt,
             )
         } catch (_: DuplicateKeyException) {
             putValue(key, value, now)
