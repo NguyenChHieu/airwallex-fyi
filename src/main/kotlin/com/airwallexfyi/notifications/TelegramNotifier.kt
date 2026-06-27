@@ -7,6 +7,7 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 interface TelegramNotifier {
@@ -62,9 +63,28 @@ class TelegramBotNotifier(
 
 interface TelegramTransport {
     fun sendMessage(botToken: String, chatId: String, body: String): TelegramSendResponse
+
+    fun getUpdates(botToken: String, offset: Long?): List<TelegramUpdate>
 }
 
 data class TelegramSendResponse(val messageId: String)
+
+data class TelegramUpdate(
+    val updateId: Long,
+    val message: TelegramMessage?,
+)
+
+data class TelegramMessage(
+    val text: String?,
+    val chat: TelegramChat,
+)
+
+data class TelegramChat(
+    val id: Long,
+    val username: String?,
+    val firstName: String?,
+    val lastName: String?,
+)
 
 @Component
 class RestClientTelegramTransport(
@@ -107,6 +127,59 @@ class RestClientTelegramTransport(
             throw IllegalStateException("Telegram response did not include a message ID")
         }
         return TelegramSendResponse(messageId = messageId)
+    }
+
+    override fun getUpdates(botToken: String, offset: Long?): List<TelegramUpdate> {
+        require(botToken.isNotBlank()) { "Telegram bot token is not configured" }
+
+        val responseBody = try {
+            restClient.get()
+                .uri { uriBuilder ->
+                    val builder = uriBuilder.path("/bot{botToken}/getUpdates")
+                    if (offset != null) {
+                        builder.queryParam("offset", offset)
+                    }
+                    builder.build(botToken)
+                }
+                .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .retrieve()
+                .body(String::class.java)
+                ?: throw IllegalStateException("Telegram returned an empty response body")
+        } catch (ex: RestClientException) {
+            throw IllegalStateException("Telegram getUpdates request failed: ${ex.safeMessage()}", ex)
+        }
+
+        val root = objectMapper.readTree(responseBody)
+        if (!root.path("ok").asBoolean(false)) {
+            val description = root.path("description").asText("Telegram returned an error")
+            throw IllegalStateException(description)
+        }
+        return root.path("result")
+            .filter { !it.isMissingNode }
+            .mapNotNull { it.toTelegramUpdateOrNull() }
+    }
+
+    private fun JsonNode.toTelegramUpdateOrNull(): TelegramUpdate? {
+        val updateId = path("update_id").asLong(Long.MIN_VALUE)
+        if (updateId == Long.MIN_VALUE) return null
+
+        val messageNode = path("message")
+        val chatNode = messageNode.path("chat")
+        val chatId = chatNode.path("id").asLong(Long.MIN_VALUE)
+        val message = if (messageNode.isMissingNode || chatId == Long.MIN_VALUE) {
+            null
+        } else {
+            TelegramMessage(
+                text = messageNode.path("text").asText(null),
+                chat = TelegramChat(
+                    id = chatId,
+                    username = chatNode.path("username").asText(null),
+                    firstName = chatNode.path("first_name").asText(null),
+                    lastName = chatNode.path("last_name").asText(null),
+                ),
+            )
+        }
+        return TelegramUpdate(updateId = updateId, message = message)
     }
 
     private fun Throwable.safeMessage(): String =

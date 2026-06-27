@@ -15,6 +15,9 @@ import com.airwallexfyi.digests.DigestMessageType
 import com.airwallexfyi.notifications.NotificationResult
 import com.airwallexfyi.notifications.NotificationStatus
 import com.airwallexfyi.notifications.TelegramNotifier
+import com.airwallexfyi.notifications.TelegramSendResponse
+import com.airwallexfyi.notifications.TelegramTransport
+import com.airwallexfyi.notifications.TelegramUpdate
 import com.airwallexfyi.notifications.WhatsAppAlertPayload
 import com.airwallexfyi.notifications.WhatsAppNotifier
 import com.airwallexfyi.posts.PostRecord
@@ -30,6 +33,8 @@ import com.airwallexfyi.subscribers.SubscriberRecord
 import com.airwallexfyi.subscribers.SubscriberRepository
 import com.airwallexfyi.subscribers.SubscriberSeedService
 import com.airwallexfyi.subscribers.SubscriberStatus
+import com.airwallexfyi.subscribers.TelegramSubscriptionService
+import com.airwallexfyi.state.AppStateRepository
 import com.airwallexfyi.summaries.AiSummaryClient
 import com.airwallexfyi.summaries.ArticleSummaryService
 import com.airwallexfyi.summaries.SummaryGenerationException
@@ -43,6 +48,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import tools.jackson.databind.ObjectMapper
 
@@ -62,6 +68,7 @@ class MonitorRunServiceTest @Autowired constructor(
     private val digestDeliveryPostRepository: DigestDeliveryPostRepository,
     private val objectMapper: ObjectMapper,
     private val jdbcTemplate: NamedParameterJdbcTemplate,
+    private val plainJdbcTemplate: JdbcTemplate,
 ) {
     @BeforeEach
     fun deleteRows() {
@@ -71,6 +78,7 @@ class MonitorRunServiceTest @Autowired constructor(
         postRepository.deleteAll()
         subscriberChannelRepository.deleteAll()
         subscriberRepository.deleteAll()
+        plainJdbcTemplate.update("DELETE FROM app_state")
     }
 
     @Test
@@ -408,6 +416,13 @@ class MonitorRunServiceTest @Autowired constructor(
             summaryRepository = summaryRepository,
             articleSummaryService = summaryService(aiClient, properties),
             subscriberSeedService = SubscriberSeedService(properties, subscriberRepository, subscriberChannelRepository),
+            telegramSubscriptionService = TelegramSubscriptionService(
+                properties = properties,
+                telegramTransport = FakeTelegramTransport(),
+                appStateRepository = AppStateRepository(plainJdbcTemplate),
+                subscriberRepository = subscriberRepository,
+                subscriberChannelRepository = subscriberChannelRepository,
+            ),
             dailyDigestService = DailyDigestService(
                 properties = properties,
                 subscriberChannelRepository = subscriberChannelRepository,
@@ -567,6 +582,13 @@ class MonitorRunServiceTest @Autowired constructor(
             payloadPreview = payload.preview,
             twilioCalled = false,
         )
+    }
+
+    private class FakeTelegramTransport : TelegramTransport {
+        override fun sendMessage(botToken: String, chatId: String, body: String): TelegramSendResponse =
+            TelegramSendResponse("telegram-test-message")
+
+        override fun getUpdates(botToken: String, offset: Long?): List<TelegramUpdate> = emptyList()
     }
 }
 

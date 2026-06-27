@@ -23,6 +23,8 @@ DRY_RUN=false
 SCHEDULER_ENABLED=false
 ```
 
+`TELEGRAM_CHAT_ID` seeds one default Telegram subscriber. It can be blank if you want users to subscribe by sending `/start` to the bot.
+
 Example `.env` entries for a Twilio Sandbox smoke test:
 
 ```properties
@@ -119,7 +121,7 @@ For the cheapest MVP deployment, use the included GitHub Actions workflow instea
 
 The workflow lives at `.github/workflows/daily-airwallex-fyi.yml` and also supports manual runs from the GitHub Actions tab. Its cron is `0 22 * * *` UTC, which is about 8am in Sydney during AEST and 9am during AEDT.
 
-Add these repository secrets in GitHub under `Settings -> Secrets and variables -> Actions -> New repository secret`:
+Add these required repository secrets in GitHub under `Settings -> Secrets and variables -> Actions -> New repository secret`:
 
 ```text
 DATABASE_URL
@@ -127,6 +129,11 @@ DATABASE_USERNAME
 DATABASE_PASSWORD
 GEMINI_API_KEY
 TELEGRAM_BOT_TOKEN
+```
+
+Optionally add this secret to seed your own Telegram chat without waiting for `/start` processing:
+
+```text
 TELEGRAM_CHAT_ID
 ```
 
@@ -143,6 +150,18 @@ After pushing the workflow, test it manually:
 3. Select `Daily Airwallex FYI`.
 4. Click `Run workflow`.
 5. Check the logs and Telegram message.
+
+## Telegram Multi-User Subscriptions
+
+The bot supports simple self-service Telegram subscriptions without a webhook server:
+
+- `/start` subscribes or reactivates the current chat.
+- `/stop` unsubscribes the current chat.
+- `/help` replies with the available commands.
+
+Because this MVP avoids an always-on server, Telegram commands are processed when `--run-once` runs. With GitHub Actions, that means the daily scheduled workflow picks up new `/start` and `/stop` messages. To process a command immediately, run `Daily Airwallex FYI` manually from the GitHub Actions tab.
+
+The app stores the last processed Telegram update id in the `app_state` table, so old `/start` or `/stop` messages are not replayed on every run.
 
 ## Admin Endpoints
 
@@ -179,7 +198,7 @@ Telegram is the simplest free delivery path for this project:
 3. Open your new bot chat and send `/start`.
 4. In a browser, open `https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates`.
 5. Copy `message.chat.id` from the JSON response.
-6. Put these values in `.env`:
+6. Put these values in `.env` if you want to seed your own chat directly:
 
 ```text
 TELEGRAM_BOT_TOKEN=
@@ -189,6 +208,8 @@ DRY_RUN=false
 ```
 
 Leave `WHATSAPP_TO` blank if you only want Telegram. If both `WHATSAPP_TO` and `TELEGRAM_CHAT_ID` are set, the app seeds both subscriber channels and sends the daily digest to both.
+
+Other Telegram users do not need you to copy their chat ids manually. They can message your bot with `/start`, and the next scheduled run will save their chat id as an active subscriber.
 
 ## Twilio Sandbox Setup
 

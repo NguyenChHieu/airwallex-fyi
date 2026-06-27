@@ -10,6 +10,8 @@ import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.sources.AirwallexSourceDiscoveryService
 import com.airwallexfyi.sources.SitemapEntry
 import com.airwallexfyi.subscribers.SubscriberSeedService
+import com.airwallexfyi.subscribers.TelegramSubscriptionService
+import com.airwallexfyi.subscribers.TelegramSubscriptionSyncResult
 import com.airwallexfyi.summaries.ArticleSummaryResult
 import com.airwallexfyi.summaries.ArticleSummaryService
 import com.airwallexfyi.summaries.SummaryRepository
@@ -24,6 +26,7 @@ class MonitorRunService(
     private val summaryRepository: SummaryRepository,
     private val articleSummaryService: ArticleSummaryService,
     private val subscriberSeedService: SubscriberSeedService,
+    private val telegramSubscriptionService: TelegramSubscriptionService,
     private val dailyDigestService: DailyDigestService,
 ) {
     fun runOnce(): MonitorRunResult {
@@ -99,6 +102,7 @@ class MonitorRunService(
     private fun runDailyDigest(accumulator: MonitorRunAccumulator) {
         try {
             subscriberSeedService.seedDefaultSubscriberIfConfigured()
+            accumulator.recordTelegramSubscriptionResult(telegramSubscriptionService.syncSubscriptions())
             accumulator.recordDigestResult(dailyDigestService.sendDailyDigests())
         } catch (ex: RuntimeException) {
             accumulator.recordDigestFailure("Digest delivery failed: ${ex.shortReason()}")
@@ -187,6 +191,17 @@ private class MonitorRunAccumulator(
         twilioCallsTriggered = twilioCallsTriggered || result.twilioCallsTriggered
         result.samplePayloads.forEach { addPayload(it) }
         result.sampleDeliveries.forEach { digestDeliveries.addSample(it) }
+        result.sampleErrors.forEach { digestErrors.addSample(it) }
+    }
+
+    fun recordTelegramSubscriptionResult(result: TelegramSubscriptionSyncResult) {
+        if (result.skipped) return
+        if (result.processedCount > 0 || result.subscribedCount > 0 || result.unsubscribedCount > 0) {
+            digestDeliveries.addSample(
+                "telegram subscriptions processed=${result.processedCount} subscribed=${result.subscribedCount} unsubscribed=${result.unsubscribedCount}",
+            )
+        }
+        digestFailedCount += result.failedCount
         result.sampleErrors.forEach { digestErrors.addSample(it) }
     }
 

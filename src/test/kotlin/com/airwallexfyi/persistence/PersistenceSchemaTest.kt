@@ -213,6 +213,13 @@ class PersistenceSchemaTest @Autowired constructor(
     }
 
     @Test
+    fun `app state table exposes persisted cursor columns`() {
+        assertThat(columnsFor("app_state")).containsAll(
+            listOf("state_key", "state_value", "updated_at"),
+        )
+    }
+
+    @Test
     fun `digest schema rejects duplicate daily deliveries and duplicate post links`() {
         val subscriberId = insertSubscriber("Digest Subscriber")
         val channelId = insertSubscriberChannel(subscriberId, "whatsapp:+1777${System.nanoTime()}")

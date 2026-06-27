@@ -70,5 +70,7 @@ class TelegramBotNotifierTest {
             failure?.let { throw it }
             return requireNotNull(response)
         }
+
+        override fun getUpdates(botToken: String, offset: Long?): List<TelegramUpdate> = emptyList()
     }
 }
