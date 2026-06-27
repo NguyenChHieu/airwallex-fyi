@@ -72,7 +72,7 @@ class MonitorRunService(
 
         statePlan.workItems.forEachIndexed { index, workItem ->
             try {
-                if (workItem.mode != PostWorkMode.BASELINE || index % PROGRESS_LOG_INTERVAL == 0) {
+                if (shouldLogProgress(index, statePlan.workItems.size)) {
                     logger.info(
                         "Monitor processing item {}/{} mode={} url={}",
                         index + 1,
@@ -111,6 +111,9 @@ class MonitorRunService(
 
         return accumulator.toResult()
     }
+
+    private fun shouldLogProgress(index: Int, total: Int): Boolean =
+        index == 0 || index + 1 == total || index % PROGRESS_LOG_INTERVAL == 0
 
     private fun handleNewPost(post: PostRecord, article: ExtractedArticle, accumulator: MonitorRunAccumulator) {
         when (val summaryResult = articleSummaryService.summarize(post, article)) {

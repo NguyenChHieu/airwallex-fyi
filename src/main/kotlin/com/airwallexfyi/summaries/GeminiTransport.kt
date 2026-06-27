@@ -15,7 +15,7 @@ interface GeminiTransport {
 class RestClientGeminiTransport : GeminiTransport {
     private val restClient = RestClient.builder()
         .baseUrl("https://generativelanguage.googleapis.com")
-        .requestFactory(RestClientTimeouts.requestFactory())
+        .requestFactory(RestClientTimeouts.requestFactory(RestClientTimeouts.GEMINI_READ_TIMEOUT))
         .build()
 
     override fun generateContent(model: String, apiKey: String, requestBody: Map<String, Any>): String {

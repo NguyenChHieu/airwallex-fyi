@@ -1,15 +1,21 @@
 package com.airwallexfyi.http
 
+import java.net.http.HttpClient
 import java.time.Duration
-import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.http.client.JdkClientHttpRequestFactory
 
 object RestClientTimeouts {
-    fun requestFactory(): SimpleClientHttpRequestFactory =
-        SimpleClientHttpRequestFactory().apply {
-            setConnectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
-            setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS))
+    fun requestFactory(readTimeout: Duration = DEFAULT_READ_TIMEOUT): JdkClientHttpRequestFactory {
+        val httpClient = HttpClient.newBuilder()
+            .connectTimeout(CONNECT_TIMEOUT)
+            .build()
+        return JdkClientHttpRequestFactory(httpClient).apply {
+            setReadTimeout(readTimeout)
         }
+    }
 
-    private const val CONNECT_TIMEOUT_SECONDS = 10L
-    private const val READ_TIMEOUT_SECONDS = 45L
+    val GEMINI_READ_TIMEOUT: Duration = Duration.ofSeconds(120)
+
+    private val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(10)
+    private val DEFAULT_READ_TIMEOUT: Duration = Duration.ofSeconds(45)
 }
