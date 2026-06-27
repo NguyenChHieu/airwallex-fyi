@@ -15,6 +15,7 @@ import com.airwallexfyi.subscribers.TelegramSubscriptionSyncResult
 import com.airwallexfyi.summaries.ArticleSummaryResult
 import com.airwallexfyi.summaries.ArticleSummaryService
 import com.airwallexfyi.summaries.SummaryRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
@@ -29,7 +30,10 @@ class MonitorRunService(
     private val telegramSubscriptionService: TelegramSubscriptionService,
     private val dailyDigestService: DailyDigestService,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     fun runOnce(): MonitorRunResult {
+        logger.info("Monitor run started.")
         val candidates = try {
             sourceDiscoveryService.discoverCandidates()
         } catch (ex: RuntimeException) {
@@ -49,18 +53,37 @@ class MonitorRunService(
                 message = "Sitemap discovery failed; no posts were written.",
             )
         }
+        logger.info("Monitor discovery completed: candidates={}", candidates.size)
 
         val statePlan = postStateService.planWork(candidates)
+        logger.info(
+            "Monitor work planned: workItems={} skipped={} seed={} baseline={} new={} updateCheck={}",
+            statePlan.workItems.size,
+            statePlan.skippedCount,
+            statePlan.workItems.count { it.mode == PostWorkMode.SEED },
+            statePlan.workItems.count { it.mode == PostWorkMode.BASELINE },
+            statePlan.workItems.count { it.mode == PostWorkMode.NEW },
+            statePlan.workItems.count { it.mode == PostWorkMode.UPDATE_CHECK },
+        )
         val accumulator = MonitorRunAccumulator(
             discoveredCount = candidates.size,
             skippedCount = statePlan.skippedCount,
         )
 
-        statePlan.workItems.forEach { workItem ->
+        statePlan.workItems.forEachIndexed { index, workItem ->
             try {
+                if (shouldLogProgress(index, statePlan.workItems.size)) {
+                    logger.info(
+                        "Monitor processing item {}/{} mode={} url={}",
+                        index + 1,
+                        statePlan.workItems.size,
+                        workItem.mode,
+                        workItem.entry.url,
+                    )
+                }
                 if (workItem.mode == PostWorkMode.BASELINE) {
                     accumulator.record(postStateService.baseline(workItem))
-                    return@forEach
+                    return@forEachIndexed
                 }
                 val article = articleExtractor.extract(workItem.entry)
                 val applyResult = postStateService.apply(workItem, article)
@@ -80,11 +103,17 @@ class MonitorRunService(
             }
         }
 
+        logger.info("Monitor article processing completed; checking approval-needed records.")
         recordMissingSummaryApprovals(candidates, accumulator)
+        logger.info("Monitor digest phase started.")
         runDailyDigest(accumulator)
+        logger.info("Monitor run finished.")
 
         return accumulator.toResult()
     }
+
+    private fun shouldLogProgress(index: Int, total: Int): Boolean =
+        index == 0 || index + 1 == total || index % PROGRESS_LOG_INTERVAL == 0
 
     private fun handleNewPost(post: PostRecord, article: ExtractedArticle, accumulator: MonitorRunAccumulator) {
         when (val summaryResult = articleSummaryService.summarize(post, article)) {
@@ -102,7 +131,9 @@ class MonitorRunService(
     private fun runDailyDigest(accumulator: MonitorRunAccumulator) {
         try {
             subscriberSeedService.seedDefaultSubscriberIfConfigured()
+            logger.info("Telegram subscription sync started.")
             accumulator.recordTelegramSubscriptionResult(telegramSubscriptionService.syncSubscriptions())
+            logger.info("Daily digest send started.")
             accumulator.recordDigestResult(dailyDigestService.sendDailyDigests())
         } catch (ex: RuntimeException) {
             accumulator.recordDigestFailure("Digest delivery failed: ${ex.shortReason()}")
@@ -288,4 +319,5 @@ private fun Throwable.shortReason(): String =
         ?: javaClass.simpleName
 
 private const val SAMPLE_LIMIT = 5
+private const val PROGRESS_LOG_INTERVAL = 50
 

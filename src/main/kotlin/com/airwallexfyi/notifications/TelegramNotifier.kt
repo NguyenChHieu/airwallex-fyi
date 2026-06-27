@@ -1,6 +1,7 @@
 package com.airwallexfyi.notifications
 
 import com.airwallexfyi.config.AppProperties
+import com.airwallexfyi.http.RestClientTimeouts
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -92,6 +93,7 @@ class RestClientTelegramTransport(
 ) : TelegramTransport {
     private val restClient = RestClient.builder()
         .baseUrl("https://api.telegram.org")
+        .requestFactory(RestClientTimeouts.requestFactory())
         .build()
 
     override fun sendMessage(botToken: String, chatId: String, body: String): TelegramSendResponse {
