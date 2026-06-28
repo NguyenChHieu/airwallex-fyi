@@ -86,7 +86,7 @@ class DailyDigestService(
         }
 
         val deliveryStatus = notificationResult.status.name
-        val sentAt = if (notificationResult.status == NotificationStatus.FAILED) null else now
+        val sentAt = if (notificationResult.status in NON_SENT_STATUSES) null else now
         val delivery = digestDeliveryRepository.save(
             DigestDeliveryRecord(
                 subscriberChannelId = subscriberChannel.identifier(),
@@ -127,6 +127,7 @@ class DailyDigestService(
                 counters.failedCount += 1
                 counters.addErrorSample("${subscriberChannel.recipient}: ${notificationResult.errorMessage ?: "delivery failed"}")
             }
+            notificationResult.status == NotificationStatus.SKIPPED -> Unit
             messageType == DigestMessageType.NO_CHANGES -> counters.noChangeCount += 1
             else -> counters.digestSentCount += 1
         }
@@ -179,6 +180,7 @@ class DailyDigestService(
         const val ERROR_LIMIT = 240
         const val SAMPLE_LIMIT = 5
         val SUPPORTED_CHANNELS = listOf(SubscriberChannelType.WHATSAPP, SubscriberChannelType.TELEGRAM)
+        val NON_SENT_STATUSES = setOf(NotificationStatus.FAILED, NotificationStatus.SKIPPED)
 
         fun MutableList<String>.addBounded(value: String) {
             if (size < SAMPLE_LIMIT) {

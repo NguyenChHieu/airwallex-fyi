@@ -11,6 +11,7 @@ import org.springframework.data.relational.core.mapping.Table
 
 object DigestDeliveryStatus {
     const val DRY_RUN: String = "DRY_RUN"
+    const val SKIPPED: String = "SKIPPED"
     const val SENT: String = "SENT"
     const val FAILED: String = "FAILED"
     const val SKIPPED_DUPLICATE: String = "SKIPPED_DUPLICATE"

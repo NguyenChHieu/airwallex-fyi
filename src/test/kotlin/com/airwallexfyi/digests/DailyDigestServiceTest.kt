@@ -183,6 +183,25 @@ class DailyDigestServiceTest @Autowired constructor(
         assertThat(notifier.payloads).hasSize(3)
     }
 
+    @Test
+    fun `skipped whatsapp delivery is not counted as failure or sent digest`() {
+        val channel = createChannel("whatsapp:+15550003008")
+        createSummarizedPost("https://www.airwallex.com/global/blog/skipped-whatsapp-${System.nanoTime()}")
+        val notifier = FakeWhatsAppNotifier(skippedRecipients = setOf(channel.recipient))
+        val service = service(notifier)
+
+        val result = service.sendDailyDigests(Instant.parse("2026-06-22T01:00:00Z"))
+
+        val delivery = requireNotNull(
+            digestDeliveryRepository.findBySubscriberChannelIdAndLocalDate(channel.identifier(), LocalDate.of(2026, 6, 22)),
+        )
+        assertThat(result.failedCount).isZero()
+        assertThat(result.digestSentCount).isZero()
+        assertThat(result.noChangeCount).isZero()
+        assertThat(delivery.status).isEqualTo(DigestDeliveryStatus.SKIPPED)
+        assertThat(delivery.sentAt).isNull()
+    }
+
     private fun service(
         notifier: FakeWhatsAppNotifier,
         telegramNotifier: FakeTelegramNotifier = FakeTelegramNotifier(),
@@ -256,6 +275,7 @@ class DailyDigestServiceTest @Autowired constructor(
 
     private class FakeWhatsAppNotifier(
         private val failingRecipients: Set<String> = emptySet(),
+        private val skippedRecipients: Set<String> = emptySet(),
     ) : WhatsAppNotifier {
         val payloads: MutableList<WhatsAppAlertPayload> = mutableListOf()
 
@@ -266,6 +286,14 @@ class DailyDigestServiceTest @Autowired constructor(
                     status = NotificationStatus.FAILED,
                     payloadPreview = payload.preview,
                     errorMessage = "simulated failure for ${payload.recipient}",
+                    twilioCalled = false,
+                )
+            }
+            if (payload.recipient in skippedRecipients) {
+                return NotificationResult(
+                    status = NotificationStatus.SKIPPED,
+                    payloadPreview = payload.preview,
+                    errorMessage = "simulated skip for ${payload.recipient}",
                     twilioCalled = false,
                 )
             }

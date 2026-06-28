@@ -14,6 +14,7 @@ data class NotificationResult(
 
 enum class NotificationStatus {
     DRY_RUN,
+    SKIPPED,
     SENT,
     FAILED,
 }

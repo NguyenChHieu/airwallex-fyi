@@ -38,6 +38,20 @@ class TwilioWhatsAppNotifierTest {
         assertThat(transport.calls).isEqualTo(1)
     }
 
+    @Test
+    fun `missing twilio config skips whatsapp without provider call`() {
+        val transport = FakeTwilioTransport(response = TwilioSendResponse("SM123"))
+        val notifier = TwilioWhatsAppNotifier(AppProperties(), transport)
+        val payload = payload()
+
+        val result = notifier.send(payload)
+
+        assertThat(result.status).isEqualTo(NotificationStatus.SKIPPED)
+        assertThat(result.twilioCalled).isFalse()
+        assertThat(result.errorMessage).contains("skipping WhatsApp delivery")
+        assertThat(transport.calls).isZero()
+    }
+
     private fun notifier(transport: FakeTwilioTransport): TwilioWhatsAppNotifier = TwilioWhatsAppNotifier(
         properties = AppProperties(
             twilio = AppProperties.Twilio(
