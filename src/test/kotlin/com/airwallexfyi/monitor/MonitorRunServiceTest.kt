@@ -26,6 +26,7 @@ import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.posts.SourceType
 import com.airwallexfyi.sources.AirwallexHttpClient
 import com.airwallexfyi.sources.AirwallexSourceDiscoveryService
+import com.airwallexfyi.sources.SitemapEntry
 import com.airwallexfyi.subscribers.SubscriberChannelRecord
 import com.airwallexfyi.subscribers.SubscriberChannelRepository
 import com.airwallexfyi.subscribers.SubscriberChannelType
@@ -174,6 +175,35 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.skippedCount).isEqualTo(1)
         assertThat(result.approvalNeededCount).isZero()
         assertThat(postRepository.findByUrl(url)?.processingStatus).isEqualTo(ProcessingStatus.DISCOVERED.name)
+    }
+
+    @Test
+    fun `unchanged update check without summary is marked approval needed`() {
+        val url = blogUrl("missing-summary-update-check")
+        val originalLastmod = Instant.parse("2026-06-20T00:00:00Z")
+        val bumpedLastmod = Instant.parse("2026-06-21T00:00:00Z")
+        val articleHtml = fixture("/fixtures/airwallex/blog-agentos.html")
+        val extracted = articleExtractor(mapOf(url to articleHtml)).extract(
+            SitemapEntry(url = url, sourceType = SourceType.BLOG, sitemapLastmod = originalLastmod),
+        )
+        val known = saveKnownPost(url, contentHash = extracted.contentHash, sitemapLastmod = originalLastmod)
+        postStateService.updateProcessingStatus(known.identifier(), ProcessingStatus.DISCOVERED)
+        val aiClient = FakeAiSummaryClient(summary())
+        val service = monitorService(
+            sitemapXml = sitemap(listOf(url), lastmod = bumpedLastmod),
+            articleBodies = mapOf(url to articleHtml),
+            aiClient = aiClient,
+        )
+
+        val result = service.runOnce()
+
+        assertThat(result.skippedCount).isEqualTo(1)
+        assertThat(result.updatedCount).isZero()
+        assertThat(result.approvalNeededCount).isEqualTo(1)
+        assertThat(result.sampleApprovalNeeded.single().reason).isEqualTo("missing_summary")
+        assertThat(result.summarizedCount).isZero()
+        assertThat(aiClient.calls).isZero()
+        assertThat(postRepository.findByUrl(url)?.processingStatus).isEqualTo(ProcessingStatus.APPROVAL_NEEDED.name)
     }
 
     @Test

@@ -321,6 +321,7 @@ private val MISSING_SUMMARY_APPROVAL_SKIP_STATUSES = setOf(
     ProcessingStatus.ALERT_SENT.name,
     ProcessingStatus.DRY_RUN_READY.name,
     ProcessingStatus.SUMMARY_FAILED.name,
+    ProcessingStatus.ALERT_FAILED.name,
     ProcessingStatus.APPROVAL_NEEDED.name,
 )
 
