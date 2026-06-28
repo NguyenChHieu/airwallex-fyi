@@ -5,10 +5,8 @@ import com.airwallexfyi.articles.ExtractedArticle
 import com.airwallexfyi.digests.DailyDigestRunResult
 import com.airwallexfyi.digests.DailyDigestService
 import com.airwallexfyi.posts.PostRecord
-import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.sources.AirwallexSourceDiscoveryService
-import com.airwallexfyi.sources.SitemapEntry
 import com.airwallexfyi.subscribers.SubscriberSeedService
 import com.airwallexfyi.subscribers.TelegramSubscriptionService
 import com.airwallexfyi.subscribers.TelegramSubscriptionSyncResult
@@ -23,7 +21,6 @@ class MonitorRunService(
     private val sourceDiscoveryService: AirwallexSourceDiscoveryService,
     private val articleExtractor: ArticleExtractor,
     private val postStateService: PostStateService,
-    private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
     private val articleSummaryService: ArticleSummaryService,
     private val subscriberSeedService: SubscriberSeedService,
@@ -94,17 +91,16 @@ class MonitorRunService(
                         applyResult.post?.let { postStateService.updateProcessingStatus(it.identifier(), ProcessingStatus.APPROVAL_NEEDED) }
                         accumulator.recordApprovalNeeded(applyResult.url, "content_changed")
                     }
+                    PostApplyKind.SKIPPED -> applyResult.post?.let { recordMissingSummaryApproval(it, accumulator) }
                     PostApplyKind.SEEDED,
-                    PostApplyKind.BASELINED,
-                    PostApplyKind.SKIPPED -> Unit
+                    PostApplyKind.BASELINED -> Unit
                 }
             } catch (ex: RuntimeException) {
                 accumulator.recordFailure(workItem.entry.url, ex.shortReason())
             }
         }
 
-        logger.info("Monitor article processing completed; checking approval-needed records.")
-        recordMissingSummaryApprovals(candidates, accumulator)
+        logger.info("Monitor article processing completed.")
         logger.info("Monitor digest phase started.")
         runDailyDigest(accumulator)
         logger.info("Monitor run finished.")
@@ -140,16 +136,14 @@ class MonitorRunService(
         }
     }
 
-    private fun recordMissingSummaryApprovals(candidates: List<SitemapEntry>, accumulator: MonitorRunAccumulator) {
-        candidates.forEach { candidate ->
-            val post = postRepository.findByUrl(candidate.url) ?: return@forEach
-            if (post.processingStatus in setOf(ProcessingStatus.SEEDED.name, ProcessingStatus.BASELINED.name)) return@forEach
-            val alreadySummarized = summaryRepository.findByPostId(post.identifier()) != null
-            if (!alreadySummarized && post.processingStatus != ProcessingStatus.SUMMARY_FAILED.name) {
-                postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.APPROVAL_NEEDED)
-                accumulator.recordApprovalNeeded(post.url, "missing_summary")
-            }
-        }
+    private fun recordMissingSummaryApproval(post: PostRecord, accumulator: MonitorRunAccumulator) {
+        if (post.processingStatus in MISSING_SUMMARY_APPROVAL_SKIP_STATUSES) return
+
+        val alreadySummarized = summaryRepository.findByPostId(post.identifier()) != null
+        if (alreadySummarized) return
+
+        postStateService.updateProcessingStatus(post.identifier(), ProcessingStatus.APPROVAL_NEEDED)
+        accumulator.recordApprovalNeeded(post.url, "missing_summary")
     }
 }
 
@@ -320,4 +314,14 @@ private fun Throwable.shortReason(): String =
 
 private const val SAMPLE_LIMIT = 5
 private const val PROGRESS_LOG_INTERVAL = 50
+private val MISSING_SUMMARY_APPROVAL_SKIP_STATUSES = setOf(
+    ProcessingStatus.SEEDED.name,
+    ProcessingStatus.BASELINED.name,
+    ProcessingStatus.SUMMARY_READY.name,
+    ProcessingStatus.ALERT_SENT.name,
+    ProcessingStatus.DRY_RUN_READY.name,
+    ProcessingStatus.SUMMARY_FAILED.name,
+    ProcessingStatus.ALERT_FAILED.name,
+    ProcessingStatus.APPROVAL_NEEDED.name,
+)
 

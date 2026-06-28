@@ -19,8 +19,13 @@ class DefaultMonitorRunOnceCommand(
     override fun execute(): Int {
         val result = monitorRunService.runOnce()
         log(result)
-        return if (result.status == MonitorRunStatus.COMPLETED) EXIT_SUCCESS else EXIT_FAILURE
+        return if (shouldFailProcess(result)) EXIT_FAILURE else EXIT_SUCCESS
     }
+
+    private fun shouldFailProcess(result: MonitorRunResult): Boolean =
+        result.status == MonitorRunStatus.FAILED ||
+            result.summaryFailedCount > 0 ||
+            result.digestFailedCount > 0
 
     private fun log(result: MonitorRunResult) {
         logger.info(

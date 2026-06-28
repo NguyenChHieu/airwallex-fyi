@@ -23,9 +23,29 @@ class MonitorRunOnceCommandTest {
     }
 
     @Test
-    fun `partial failure exits one`() {
+    fun `article-only partial failure exits zero`() {
         val service = mock(MonitorRunService::class.java)
-        `when`(service.runOnce()).thenReturn(result(MonitorRunStatus.PARTIAL_FAILURE))
+        `when`(service.runOnce()).thenReturn(result(MonitorRunStatus.PARTIAL_FAILURE, failedCount = 1))
+        val command = DefaultMonitorRunOnceCommand(service)
+
+        assertThat(command.execute()).isEqualTo(DefaultMonitorRunOnceCommand.EXIT_SUCCESS)
+        verify(service).runOnce()
+    }
+
+    @Test
+    fun `summary partial failure exits one`() {
+        val service = mock(MonitorRunService::class.java)
+        `when`(service.runOnce()).thenReturn(result(MonitorRunStatus.PARTIAL_FAILURE, summaryFailedCount = 1))
+        val command = DefaultMonitorRunOnceCommand(service)
+
+        assertThat(command.execute()).isEqualTo(DefaultMonitorRunOnceCommand.EXIT_FAILURE)
+        verify(service).runOnce()
+    }
+
+    @Test
+    fun `digest partial failure exits one`() {
+        val service = mock(MonitorRunService::class.java)
+        `when`(service.runOnce()).thenReturn(result(MonitorRunStatus.PARTIAL_FAILURE, digestFailedCount = 1))
         val command = DefaultMonitorRunOnceCommand(service)
 
         assertThat(command.execute()).isEqualTo(DefaultMonitorRunOnceCommand.EXIT_FAILURE)
@@ -42,7 +62,12 @@ class MonitorRunOnceCommandTest {
         verify(service).runOnce()
     }
 
-    private fun result(status: String): MonitorRunResult = MonitorRunResult(
+    private fun result(
+        status: String,
+        failedCount: Int = 0,
+        summaryFailedCount: Int = 0,
+        digestFailedCount: Int = 0,
+    ): MonitorRunResult = MonitorRunResult(
         status = status,
         sitemapFetched = true,
         discoveredCount = 1,
@@ -50,7 +75,9 @@ class MonitorRunOnceCommandTest {
         newCount = 1,
         updatedCount = 0,
         skippedCount = 0,
-        failedCount = 0,
+        failedCount = failedCount,
+        summaryFailedCount = summaryFailedCount,
+        digestFailedCount = digestFailedCount,
         message = "Monitor run $status.",
     )
 }

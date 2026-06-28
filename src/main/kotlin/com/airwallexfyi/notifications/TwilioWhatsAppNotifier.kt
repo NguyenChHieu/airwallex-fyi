@@ -17,34 +17,48 @@ class TwilioWhatsAppNotifier(
     private val properties: AppProperties,
     private val transport: TwilioTransport,
 ) : WhatsAppNotifier {
-    override fun send(payload: WhatsAppAlertPayload): NotificationResult = try {
-        val response = transport.sendMessage(
-            accountSid = properties.twilio.accountSid,
-            authToken = properties.twilio.authToken,
-            from = properties.twilio.whatsappFrom,
-            to = payload.recipient,
-            body = payload.body,
-        )
-        NotificationResult(
-            status = NotificationStatus.SENT,
-            payloadPreview = payload.preview,
-            providerMessageId = response.sid,
-            twilioCalled = true,
-        )
-    } catch (ex: RuntimeException) {
-        val reason = ex.sanitizedReason(properties.twilio.authToken)
-        NotificationResult(
-            status = NotificationStatus.FAILED,
-            payloadPreview = payload.preview,
-            errorMessage = reason,
-            twilioCalled = true,
-        )
+    override fun send(payload: WhatsAppAlertPayload): NotificationResult {
+        if (!properties.twilio.isConfigured()) {
+            return NotificationResult(
+                status = NotificationStatus.SKIPPED,
+                payloadPreview = payload.preview,
+                errorMessage = "Twilio WhatsApp is not configured; skipping WhatsApp delivery",
+                twilioCalled = false,
+            )
+        }
+
+        return try {
+            val response = transport.sendMessage(
+                accountSid = properties.twilio.accountSid,
+                authToken = properties.twilio.authToken,
+                from = properties.twilio.whatsappFrom,
+                to = payload.recipient,
+                body = payload.body,
+            )
+            NotificationResult(
+                status = NotificationStatus.SENT,
+                payloadPreview = payload.preview,
+                providerMessageId = response.sid,
+                twilioCalled = true,
+            )
+        } catch (ex: RuntimeException) {
+            val reason = ex.sanitizedReason(properties.twilio.authToken)
+            NotificationResult(
+                status = NotificationStatus.FAILED,
+                payloadPreview = payload.preview,
+                errorMessage = reason,
+                twilioCalled = true,
+            )
+        }
     }
 
     private fun Throwable.sanitizedReason(secret: String): String {
         val raw = (message ?: javaClass.simpleName).lineSequence().firstOrNull()?.take(ERROR_LIMIT) ?: javaClass.simpleName
         return if (secret.isBlank()) raw else raw.replace(secret, "[redacted]")
     }
+
+    private fun AppProperties.Twilio.isConfigured(): Boolean =
+        accountSid.isNotBlank() && authToken.isNotBlank() && whatsappFrom.isNotBlank()
 
     private companion object {
         const val ERROR_LIMIT = 240
