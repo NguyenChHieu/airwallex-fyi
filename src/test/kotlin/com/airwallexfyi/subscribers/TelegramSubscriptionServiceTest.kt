@@ -1,12 +1,20 @@
 package com.airwallexfyi.subscribers
 
 import com.airwallexfyi.config.AppProperties
+import com.airwallexfyi.digests.LatestUpdatesService
 import com.airwallexfyi.notifications.TelegramChat
 import com.airwallexfyi.notifications.TelegramMessage
 import com.airwallexfyi.notifications.TelegramSendResponse
 import com.airwallexfyi.notifications.TelegramTransport
 import com.airwallexfyi.notifications.TelegramUpdate
+import com.airwallexfyi.posts.PostRecord
+import com.airwallexfyi.posts.PostRepository
+import com.airwallexfyi.posts.ProcessingStatus
+import com.airwallexfyi.posts.SourceType
 import com.airwallexfyi.state.AppStateRepository
+import com.airwallexfyi.summaries.StructuredSummary
+import com.airwallexfyi.summaries.SummaryRecord
+import com.airwallexfyi.summaries.SummaryRepository
 import java.time.Instant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -14,6 +22,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
+import tools.jackson.databind.ObjectMapper
 
 @SpringBootTest(
     properties = [
@@ -27,13 +36,18 @@ import org.springframework.jdbc.core.JdbcTemplate
 class TelegramSubscriptionServiceTest @Autowired constructor(
     private val subscriberRepository: SubscriberRepository,
     private val subscriberChannelRepository: SubscriberChannelRepository,
+    private val postRepository: PostRepository,
+    private val summaryRepository: SummaryRepository,
     private val appStateRepository: AppStateRepository,
     private val jdbcTemplate: JdbcTemplate,
+    private val objectMapper: ObjectMapper,
 ) {
     @BeforeEach
     fun clearData() {
         subscriberChannelRepository.deleteAll()
         subscriberRepository.deleteAll()
+        summaryRepository.deleteAll()
+        postRepository.deleteAll()
         jdbcTemplate.update("DELETE FROM app_state")
     }
 
@@ -127,6 +141,37 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `latest replies with recent summarized updates without subscribing`() {
+        val older = createSummarizedPost(
+            slug = "older-update",
+            headline = "Older Airwallex update",
+            now = Instant.parse("2026-06-26T00:00:00Z"),
+        )
+        val newer = createSummarizedPost(
+            slug = "newer-update",
+            headline = "Newer Airwallex update",
+            now = Instant.parse("2026-06-27T00:00:00Z"),
+        )
+        val transport = FakeTelegramTransport(
+            updates = listOf(update(201, "/latest", 123456789, username = "henry")),
+        )
+        val service = service(transport)
+
+        val result = service.syncSubscriptions(Instant.parse("2026-06-28T00:00:00Z"))
+
+        val body = transport.sentBodies.single()
+        assertThat(result.processedCount).isEqualTo(1)
+        assertThat(result.subscribedCount).isZero()
+        assertThat(subscriberChannelRepository.count()).isZero()
+        assertThat(body).contains("Airwallex FYI - latest updates")
+        assertThat(body).contains("1. Newer Airwallex update")
+        assertThat(body).contains("2. Older Airwallex update")
+        assertThat(body).contains("Read: ${newer.url}")
+        assertThat(body).contains("Read: ${older.url}")
+        assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("201")
+    }
+
+    @Test
     fun `dry run skips telegram network calls`() {
         val transport = FakeTelegramTransport(
             updates = listOf(update(103, "/start", 123456789)),
@@ -187,6 +232,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         appStateRepository = appStateRepository,
         subscriberRepository = subscriberRepository,
         subscriberChannelRepository = subscriberChannelRepository,
+        latestUpdatesService = LatestUpdatesService(summaryRepository, postRepository, objectMapper),
     )
 
     private fun createTelegramChannel(recipient: String, status: String, now: Instant) {
@@ -227,6 +273,39 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
             ),
         ),
     )
+
+    private fun createSummarizedPost(slug: String, headline: String, now: Instant): PostRecord {
+        val url = "https://www.airwallex.com/global/blog/$slug"
+        val post = postRepository.save(
+            PostRecord(
+                url = url,
+                sourceType = SourceType.BLOG.name,
+                title = headline,
+                publishedAt = now,
+                discoveredAt = now,
+                processingStatus = ProcessingStatus.SUMMARY_READY.name,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        summaryRepository.save(
+            SummaryRecord.from(
+                postId = post.identifier(),
+                summary = StructuredSummary.validated(
+                    headline = headline,
+                    bullets = listOf("First key point", "Second key point", "Third key point"),
+                    whyItMatters = "It helps track Airwallex changes.",
+                    tags = listOf("payments"),
+                    sourceType = SourceType.BLOG,
+                ),
+                model = "test-model",
+                promptVersion = "test-prompt",
+                objectMapper = objectMapper,
+                now = now.plusSeconds(60),
+            ),
+        )
+        return post
+    }
 
     private class FakeTelegramTransport(
         private val updates: List<TelegramUpdate> = emptyList(),

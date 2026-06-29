@@ -1,6 +1,7 @@
 package com.airwallexfyi.subscribers
 
 import com.airwallexfyi.config.AppProperties
+import com.airwallexfyi.digests.LatestUpdatesService
 import com.airwallexfyi.notifications.TelegramChat
 import com.airwallexfyi.notifications.TelegramTransport
 import com.airwallexfyi.notifications.TelegramUpdate
@@ -16,6 +17,7 @@ class TelegramSubscriptionService(
     private val appStateRepository: AppStateRepository,
     private val subscriberRepository: SubscriberRepository,
     private val subscriberChannelRepository: SubscriberChannelRepository,
+    private val latestUpdatesService: LatestUpdatesService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -100,7 +102,12 @@ class TelegramSubscriptionService(
             }
             TelegramCommand.HELP -> sendConfirmation(
                 chat.id.toString(),
-                "Airwallex FYI commands: /start subscribes, /stop unsubscribes.",
+                "Airwallex FYI commands: /start subscribes, /stop unsubscribes, /latest shows recent updates.",
+                counters,
+            )
+            TelegramCommand.LATEST -> sendConfirmation(
+                chat.id.toString(),
+                latestUpdatesService.formatLatest(),
                 counters,
             )
         }
@@ -175,6 +182,7 @@ class TelegramSubscriptionService(
             "/start" -> TelegramCommand.START
             "/stop" -> TelegramCommand.STOP
             "/help" -> TelegramCommand.HELP
+            "/latest" -> TelegramCommand.LATEST
             else -> null
         }
     }
@@ -218,6 +226,7 @@ class TelegramSubscriptionService(
         START,
         STOP,
         HELP,
+        LATEST,
     }
 
     private companion object {

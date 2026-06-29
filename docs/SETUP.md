@@ -23,6 +23,12 @@ The example uses H2. For cloud Postgres, replace `DATABASE_*`.
 
 Leave `TELEGRAM_CHAT_ID` blank if users should subscribe themselves with `/start`; the next run processes it.
 
+Commands:
+
+- `/start` subscribes the chat.
+- `/stop` unsubscribes the chat.
+- `/latest` replies with the latest summarized updates already stored in the database.
+
 ## Telegram Webhook
 
 For instant `/start` replies, deploy the app to a public HTTPS URL and set:

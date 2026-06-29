@@ -12,6 +12,7 @@ import com.airwallexfyi.digests.DigestDeliveryRepository
 import com.airwallexfyi.digests.DigestDeliveryStatus
 import com.airwallexfyi.digests.DigestEligibilityService
 import com.airwallexfyi.digests.DigestMessageType
+import com.airwallexfyi.digests.LatestUpdatesService
 import com.airwallexfyi.notifications.NotificationResult
 import com.airwallexfyi.notifications.NotificationStatus
 import com.airwallexfyi.notifications.TelegramNotifier
@@ -468,6 +469,7 @@ class MonitorRunServiceTest @Autowired constructor(
                 appStateRepository = AppStateRepository(plainJdbcTemplate),
                 subscriberRepository = subscriberRepository,
                 subscriberChannelRepository = subscriberChannelRepository,
+                latestUpdatesService = LatestUpdatesService(summaryRepository, postRepository, objectMapper),
             ),
             dailyDigestService = DailyDigestService(
                 properties = properties,
