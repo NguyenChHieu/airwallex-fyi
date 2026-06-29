@@ -1,0 +1,15 @@
+.git
+.github
+.gradle
+.idea
+.kotlin
+.vscode
+build
+out
+
+.env
+.env.*
+
+*.iml
+*.iws
+*.ipr
