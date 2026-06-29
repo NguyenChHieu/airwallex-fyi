@@ -41,6 +41,7 @@ data class AppProperties(
     data class Telegram(
         val botToken: String = "",
         val chatId: String = "",
+        val webhookSecret: String = "",
     )
 
     data class Digest(

@@ -24,6 +24,7 @@ class AppPropertiesTest {
                 "airwallex-fyi.whatsapp.to=whatsapp:+15550000002",
                 "airwallex-fyi.telegram.bot-token=test-telegram-token",
                 "airwallex-fyi.telegram.chat-id=123456789",
+                "airwallex-fyi.telegram.webhook-secret=test-webhook-secret",
                 "airwallex-fyi.digest.time-zone=Pacific/Auckland",
                 "airwallex-fyi.scheduler.enabled=true",
                 "airwallex-fyi.scheduler.fixed-delay-ms=120000",
@@ -44,6 +45,7 @@ class AppPropertiesTest {
                 assertThat(properties.whatsapp.to).isEqualTo("whatsapp:+15550000002")
                 assertThat(properties.telegram.botToken).isEqualTo("test-telegram-token")
                 assertThat(properties.telegram.chatId).isEqualTo("123456789")
+                assertThat(properties.telegram.webhookSecret).isEqualTo("test-webhook-secret")
                 assertThat(properties.digest.timeZone).isEqualTo("Pacific/Auckland")
                 assertThat(properties.scheduler.enabled).isTrue()
                 assertThat(properties.scheduler.fixedDelayMs).isEqualTo(120000)
@@ -67,6 +69,7 @@ class AppPropertiesTest {
             assertThat(properties.twilio.authToken).isBlank()
             assertThat(properties.telegram.botToken).isBlank()
             assertThat(properties.telegram.chatId).isBlank()
+            assertThat(properties.telegram.webhookSecret).isBlank()
             assertThat(properties.digest.timeZone).isEqualTo("Australia/Sydney")
             assertThat(properties.source.sitemapUrl).isEqualTo("https://www.airwallex.com/global/sitemap-blog.xml")
             assertThat(properties.source.firstRunSeedLimit).isEqualTo(25)

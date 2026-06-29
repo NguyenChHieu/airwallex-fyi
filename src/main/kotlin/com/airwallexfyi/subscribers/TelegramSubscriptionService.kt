@@ -20,7 +20,7 @@ class TelegramSubscriptionService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun syncSubscriptions(now: Instant = Instant.now()): TelegramSubscriptionSyncResult {
-        if (properties.dryRun || properties.telegram.botToken.isBlank()) {
+        if (properties.dryRun || properties.telegram.botToken.isBlank() || properties.telegram.webhookSecret.isNotBlank()) {
             return TelegramSubscriptionSyncResult(skipped = true)
         }
 
@@ -52,10 +52,30 @@ class TelegramSubscriptionService(
         return counters.toResult()
     }
 
+    fun processWebhookUpdate(update: TelegramUpdate, now: Instant = Instant.now()): TelegramSubscriptionSyncResult {
+        if (properties.dryRun || properties.telegram.botToken.isBlank()) {
+            return TelegramSubscriptionSyncResult(skipped = true)
+        }
+
+        val lastUpdateId = lastUpdateId()
+        if (lastUpdateId != null && update.updateId <= lastUpdateId) {
+            return TelegramSubscriptionSyncResult()
+        }
+
+        val counters = TelegramSubscriptionCounters()
+        counters.processedCount += 1
+        counters.lastUpdateId = update.updateId
+        processUpdate(update, now, counters)
+        appStateRepository.putValue(STATE_KEY_LAST_UPDATE_ID, update.updateId.toString(), now)
+        return counters.toResult()
+    }
+
     private fun nextOffset(): Long? =
-        appStateRepository.findValue(STATE_KEY_LAST_UPDATE_ID)
-            ?.toLongOrNull()
+        lastUpdateId()
             ?.plus(1)
+
+    private fun lastUpdateId(): Long? =
+        appStateRepository.findValue(STATE_KEY_LAST_UPDATE_ID)?.toLongOrNull()
 
     private fun processUpdate(update: TelegramUpdate, now: Instant, counters: TelegramSubscriptionCounters) {
         val message = update.message ?: return

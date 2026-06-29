@@ -87,6 +87,29 @@ data class TelegramChat(
     val lastName: String?,
 )
 
+fun JsonNode.toTelegramUpdateOrNull(): TelegramUpdate? {
+    val updateId = path("update_id").asLong(Long.MIN_VALUE)
+    if (updateId == Long.MIN_VALUE) return null
+
+    val messageNode = path("message")
+    val chatNode = messageNode.path("chat")
+    val chatId = chatNode.path("id").asLong(Long.MIN_VALUE)
+    val message = if (messageNode.isMissingNode || chatId == Long.MIN_VALUE) {
+        null
+    } else {
+        TelegramMessage(
+            text = messageNode.path("text").textOrNull(),
+            chat = TelegramChat(
+                id = chatId,
+                username = chatNode.path("username").textOrNull(),
+                firstName = chatNode.path("first_name").textOrNull(),
+                lastName = chatNode.path("last_name").textOrNull(),
+            ),
+        )
+    }
+    return TelegramUpdate(updateId = updateId, message = message)
+}
+
 @Component
 class RestClientTelegramTransport(
     private val objectMapper: ObjectMapper,
@@ -120,11 +143,11 @@ class RestClientTelegramTransport(
 
         val root = objectMapper.readTree(responseBody)
         if (!root.path("ok").asBoolean(false)) {
-            val description = root.path("description").asText("Telegram returned an error")
+            val description = root.path("description").textOrDefault("Telegram returned an error")
             throw IllegalStateException(description)
         }
 
-        val messageId = root.path("result").path("message_id").asText(null).orEmpty()
+        val messageId = root.path("result").path("message_id").textOrNull().orEmpty()
         if (messageId.isBlank()) {
             throw IllegalStateException("Telegram response did not include a message ID")
         }
@@ -153,7 +176,7 @@ class RestClientTelegramTransport(
 
         val root = objectMapper.readTree(responseBody)
         if (!root.path("ok").asBoolean(false)) {
-            val description = root.path("description").asText("Telegram returned an error")
+            val description = root.path("description").textOrDefault("Telegram returned an error")
             throw IllegalStateException(description)
         }
         return root.path("result")
@@ -161,29 +184,12 @@ class RestClientTelegramTransport(
             .mapNotNull { it.toTelegramUpdateOrNull() }
     }
 
-    private fun JsonNode.toTelegramUpdateOrNull(): TelegramUpdate? {
-        val updateId = path("update_id").asLong(Long.MIN_VALUE)
-        if (updateId == Long.MIN_VALUE) return null
-
-        val messageNode = path("message")
-        val chatNode = messageNode.path("chat")
-        val chatId = chatNode.path("id").asLong(Long.MIN_VALUE)
-        val message = if (messageNode.isMissingNode || chatId == Long.MIN_VALUE) {
-            null
-        } else {
-            TelegramMessage(
-                text = messageNode.path("text").asText(null),
-                chat = TelegramChat(
-                    id = chatId,
-                    username = chatNode.path("username").asText(null),
-                    firstName = chatNode.path("first_name").asText(null),
-                    lastName = chatNode.path("last_name").asText(null),
-                ),
-            )
-        }
-        return TelegramUpdate(updateId = updateId, message = message)
-    }
-
     private fun Throwable.safeMessage(): String =
         (message ?: javaClass.simpleName).lineSequence().firstOrNull()?.take(240) ?: javaClass.simpleName
 }
+
+private fun JsonNode.textOrNull(): String? =
+    takeUnless { it.isMissingNode || it.isNull }?.asString()
+
+private fun JsonNode.textOrDefault(defaultValue: String): String =
+    textOrNull() ?: defaultValue

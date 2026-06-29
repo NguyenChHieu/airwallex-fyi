@@ -103,11 +103,58 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `webhook update subscribes immediately and is not replayed by polling`() {
+        val now = Instant.parse("2026-06-27T00:00:00Z")
+        val transport = FakeTelegramTransport()
+        val service = service(transport)
+
+        val result = service.processWebhookUpdate(update(200, "/start", 123456789, username = "henry"), now)
+        val duplicate = service.processWebhookUpdate(update(200, "/start", 123456789, username = "henry"), now.plusSeconds(1))
+        val pollReplay = service.syncSubscriptions(now.plusSeconds(2))
+
+        val channel = subscriberChannelRepository.findByChannelAndRecipient(
+            SubscriberChannelType.TELEGRAM,
+            "123456789",
+        )
+        assertThat(result.processedCount).isEqualTo(1)
+        assertThat(result.subscribedCount).isEqualTo(1)
+        assertThat(duplicate.processedCount).isZero()
+        assertThat(pollReplay.processedCount).isZero()
+        assertThat(channel?.status).isEqualTo(SubscriberStatus.ACTIVE)
+        assertThat(transport.sentBodies).containsExactly("You're subscribed to Airwallex FYI. Send /stop anytime to unsubscribe.")
+        assertThat(transport.offsets).containsExactly(201)
+        assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("200")
+    }
+
+    @Test
     fun `dry run skips telegram network calls`() {
         val transport = FakeTelegramTransport(
             updates = listOf(update(103, "/start", 123456789)),
         )
         val service = service(transport, AppProperties(dryRun = true))
+
+        val result = service.syncSubscriptions()
+
+        assertThat(result.skipped).isTrue()
+        assertThat(transport.offsets).isEmpty()
+        assertThat(subscriberChannelRepository.count()).isZero()
+    }
+
+    @Test
+    fun `configured webhook skips polling to avoid telegram getUpdates conflict`() {
+        val transport = FakeTelegramTransport(
+            updates = listOf(update(104, "/start", 123456789)),
+        )
+        val service = service(
+            transport,
+            AppProperties(
+                dryRun = false,
+                telegram = AppProperties.Telegram(
+                    botToken = "test-token",
+                    webhookSecret = "test-webhook-secret",
+                ),
+            ),
+        )
 
         val result = service.syncSubscriptions()
 
