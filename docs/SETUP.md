@@ -57,7 +57,7 @@ Optional:
 TELEGRAM_CHAT_ID
 ```
 
-Then run `Daily Airwallex FYI` from the Actions tab. The scheduled job runs daily at `22:00 UTC`.
+Then run `Daily Airwallex FYI` from the Actions tab. Scheduled runs target `9:00am Australia/Sydney`.
 
 ## Postgres
 

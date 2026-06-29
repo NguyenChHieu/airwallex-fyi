@@ -3,8 +3,10 @@ name: Daily Airwallex FYI
 on:
   workflow_dispatch:
   schedule:
-    # GitHub cron uses UTC. This is about 8am in Sydney during AEST, 9am during AEDT.
+    # GitHub cron uses UTC. These two slots cover 9am Australia/Sydney across AEST/AEDT.
+    # The schedule gate below skips whichever slot is not 9am Sydney that day.
     - cron: "0 22 * * *"
+    - cron: "0 23 * * *"
 
 permissions:
   contents: read
@@ -33,17 +35,44 @@ jobs:
       SCHEDULER_ENABLED: "false"
 
     steps:
+      - name: Gate scheduled run to 9am Sydney
+        id: schedule_gate
+        shell: bash
+        run: |
+          sydney_time="$(TZ=Australia/Sydney date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "sydney_time=$sydney_time" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          sydney_hour="$(TZ=Australia/Sydney date '+%H')"
+          if [ "$sydney_hour" = "09" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip outside 9am Sydney
+        if: steps.schedule_gate.outputs.should_run != 'true'
+        run: echo "Skipping daily digest; Sydney time is ${{ steps.schedule_gate.outputs.sydney_time }}."
+
       - name: Checkout
+        if: steps.schedule_gate.outputs.should_run == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Java
+        if: steps.schedule_gate.outputs.should_run == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Make Gradle wrapper executable
+        if: steps.schedule_gate.outputs.should_run == 'true'
         run: chmod +x ./gradlew
 
       - name: Run monitor once
+        if: steps.schedule_gate.outputs.should_run == 'true'
         run: ./gradlew --no-daemon bootRun --args="--run-once"
