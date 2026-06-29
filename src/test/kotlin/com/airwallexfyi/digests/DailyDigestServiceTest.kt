@@ -72,7 +72,7 @@ class DailyDigestServiceTest @Autowired constructor(
         assertThat(notifier.payloads.map { it.recipient }).containsExactly(firstChannel.recipient, secondChannel.recipient)
         assertThat(notifier.payloads).allSatisfy { payload ->
             assertThat(payload.body).contains("Airwallex FYI - 2026-06-22")
-            assertThat(payload.body).contains("Link: ${summarized.post.url}")
+            assertThat(payload.body).contains("Read: ${summarized.post.url}")
         }
         assertThat(linkedPostIds(firstChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
         assertThat(linkedPostIds(secondChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
@@ -95,7 +95,7 @@ class DailyDigestServiceTest @Autowired constructor(
         assertThat(result.noChangeCount).isZero()
         assertThat(whatsAppNotifier.payloads).isEmpty()
         assertThat(telegramNotifier.payloads.single().recipient).isEqualTo("123456789")
-        assertThat(telegramNotifier.payloads.single().body).contains("Link: ${summarized.post.url}")
+        assertThat(telegramNotifier.payloads.single().body).contains("Read: ${summarized.post.url}")
         assertThat(delivery.channel).isEqualTo(SubscriberChannelType.TELEGRAM)
         assertThat(delivery.status).isEqualTo(DigestDeliveryStatus.DRY_RUN)
     }

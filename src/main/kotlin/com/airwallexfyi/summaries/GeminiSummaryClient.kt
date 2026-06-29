@@ -42,9 +42,11 @@ class GeminiSummaryClient(
     )
 
     private fun promptFor(article: ExtractedArticle): String = buildString {
-        appendLine("Summarize this public Airwallex update for a concise WhatsApp alert.")
+        appendLine("Summarize this public Airwallex update for a daily digest, not a breaking-news notification.")
         appendLine("Return only JSON matching the provided schema.")
-        appendLine("Use 3 to 5 short bullets. Keep tags short and useful.")
+        appendLine("Write for someone tracking company, product, and payments updates.")
+        appendLine("Use 3 to 5 concrete key-point bullets. Avoid hype, alert language, and generic phrases.")
+        appendLine("Make why_it_matters a short business or technical impact summary.")
         appendLine()
         appendLine("Title: ${article.title}")
         appendLine("Description: ${article.description.orEmpty()}")

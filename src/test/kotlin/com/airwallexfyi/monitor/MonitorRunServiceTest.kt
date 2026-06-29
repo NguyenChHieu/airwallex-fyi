@@ -227,7 +227,7 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.digestSentCount).isEqualTo(1)
         assertThat(result.summaryFailedCount).isZero()
         assertThat(result.samplePayloads.single()).contains("Airwallex FYI -")
-        assertThat(result.samplePayloads.single()).contains("Link: $newUrl")
+        assertThat(result.samplePayloads.single()).contains("Read: $newUrl")
         assertThat(result.externalCallsTriggered).isTrue()
         assertThat(result.twilioCallsTriggered).isFalse()
         assertThat(aiClient.calls).isEqualTo(1)
@@ -329,8 +329,8 @@ class MonitorRunServiceTest @Autowired constructor(
         assertThat(result.summarizedCount).isEqualTo(2)
         assertThat(result.digestSentCount).isEqualTo(1)
         assertThat(notifier.calls).isEqualTo(1)
-        assertThat(notifier.payloads.single().body).contains("Link: $first")
-        assertThat(notifier.payloads.single().body).contains("Link: $second")
+        assertThat(notifier.payloads.single().body).contains("Read: $first")
+        assertThat(notifier.payloads.single().body).contains("Read: $second")
         assertThat(digestDeliveryPostRepository.findByDigestDeliveryIdOrderByDisplayOrderAsc(delivery.identifier())).hasSize(2)
     }
 

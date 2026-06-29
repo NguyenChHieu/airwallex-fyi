@@ -19,16 +19,18 @@ class DailyDigestFormatter(
 
         val body = buildString {
             appendLine("Airwallex FYI - ${localDate}")
+            appendLine("${items.size} new Airwallex ${"update".pluralized(items.size)}")
             items.forEachIndexed { index, item ->
                 val summary = item.summary.toStructuredSummary(objectMapper)
                 val section = buildString {
                     appendLine()
                     appendLine("${index + 1}. ${summary.headline.boundedInline(MAX_HEADLINE_CHARS)}")
+                    appendLine("Key points:")
                     summary.bullets.take(MAX_BULLETS_PER_POST).forEach { bullet ->
                         appendLine("- ${bullet.boundedInline(MAX_BULLET_CHARS)}")
                     }
-                    appendLine("Why: ${summary.whyItMatters.boundedInline(MAX_WHY_CHARS)}")
-                    appendLine("Link: ${item.post.url}")
+                    appendLine("Why it matters: ${summary.whyItMatters.boundedInline(MAX_WHY_CHARS)}")
+                    appendLine("Read: ${item.post.url}")
                 }
                 val remainingCount = items.size - index - 1
                 val omittedLine = if (remainingCount > 0) "\n+ $remainingCount more update(s) ready in Airwallex FYI." else ""
@@ -75,12 +77,14 @@ class DailyDigestFormatter(
     private fun String.boundedPreview(): String =
         if (length <= PREVIEW_LIMIT) this else take(PREVIEW_LIMIT - 3) + "..."
 
+    private fun String.pluralized(count: Int): String = if (count == 1) this else "${this}s"
+
     companion object {
         const val CHANNEL: String = "whatsapp"
         const val NO_CHANGES_TEXT: String = "Airwallex FYI: No new public Blog or Newsroom updates today."
         const val MAX_WHATSAPP_BODY_CHARS = 1500
         private const val PREVIEW_LIMIT = 500
-        private const val MAX_BULLETS_PER_POST = 1
+        private const val MAX_BULLETS_PER_POST = 2
         private const val MAX_HEADLINE_CHARS = 110
         private const val MAX_BULLET_CHARS = 100
         private const val MAX_WHY_CHARS = 120
