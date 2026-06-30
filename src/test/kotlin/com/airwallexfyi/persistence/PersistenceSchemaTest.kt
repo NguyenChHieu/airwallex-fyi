@@ -1,5 +1,6 @@
 package com.airwallexfyi.persistence
 
+import com.airwallexfyi.digests.DailyDigestFormatter
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
@@ -356,7 +357,7 @@ class PersistenceSchemaTest @Autowired constructor(
             "DRY_RUN",
             "whatsapp:+17770000000",
             "whatsapp",
-            "Airwallex FYI: No new public Blog or Newsroom updates today.",
+            DailyDigestFormatter.NO_CHANGES_TEXT,
             null,
             null,
             attemptedAt,

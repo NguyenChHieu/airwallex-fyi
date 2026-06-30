@@ -71,7 +71,8 @@ class DailyDigestServiceTest @Autowired constructor(
         assertThat(result.noChangeCount).isZero()
         assertThat(notifier.payloads.map { it.recipient }).containsExactly(firstChannel.recipient, secondChannel.recipient)
         assertThat(notifier.payloads).allSatisfy { payload ->
-            assertThat(payload.body).contains("Airwallex FYI - 2026-06-22")
+            assertThat(payload.body).contains("Airwallex FYI - Daily Brief")
+            assertThat(payload.body).contains("2026-06-22")
             assertThat(payload.body).contains("Read: ${summarized.post.url}")
         }
         assertThat(linkedPostIds(firstChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())

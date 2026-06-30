@@ -18,14 +18,14 @@ class DailyDigestFormatter(
         }
 
         val body = buildString {
-            appendLine("Airwallex FYI - ${localDate}")
-            appendLine("${items.size} new Airwallex ${"update".pluralized(items.size)}")
+            appendLine("Airwallex FYI - Daily Brief")
+            appendLine(localDate)
+            appendLine("${items.size} Airwallex ${"update".pluralized(items.size)} worth noting")
             items.forEachIndexed { index, item ->
                 val summary = item.summary.toStructuredSummary(objectMapper)
                 val section = buildString {
                     appendLine()
                     appendLine("${index + 1}. ${summary.headline.boundedInline(MAX_HEADLINE_CHARS)}")
-                    appendLine("Key points:")
                     summary.bullets.take(MAX_BULLETS_PER_POST).forEach { bullet ->
                         appendLine("- ${bullet.boundedInline(MAX_BULLET_CHARS)}")
                     }
@@ -33,7 +33,7 @@ class DailyDigestFormatter(
                     appendLine("Read: ${item.post.url}")
                 }
                 val remainingCount = items.size - index - 1
-                val omittedLine = if (remainingCount > 0) "\n+ $remainingCount more update(s) ready in Airwallex FYI." else ""
+                val omittedLine = if (remainingCount > 0) "\n+ $remainingCount more update(s) omitted to keep this brief." else ""
                 if (length + section.length + omittedLine.length > MAX_WHATSAPP_BODY_CHARS) {
                     appendOmittedLineIfFits(remainingCount + 1)
                     return@buildString
@@ -68,7 +68,7 @@ class DailyDigestFormatter(
 
     private fun StringBuilder.appendOmittedLineIfFits(omittedCount: Int) {
         if (omittedCount <= 0) return
-        val line = "\n\n+ $omittedCount more update(s) ready in Airwallex FYI."
+        val line = "\n\n+ $omittedCount more update(s) omitted to keep this brief."
         if (length + line.length <= MAX_WHATSAPP_BODY_CHARS) {
             append(line)
         }
@@ -81,7 +81,7 @@ class DailyDigestFormatter(
 
     companion object {
         const val CHANNEL: String = "whatsapp"
-        const val NO_CHANGES_TEXT: String = "Airwallex FYI: No new public Blog or Newsroom updates today."
+        const val NO_CHANGES_TEXT: String = "Airwallex FYI - Daily Brief\nNo new public Blog or Newsroom updates today."
         const val MAX_WHATSAPP_BODY_CHARS = 1500
         private const val PREVIEW_LIMIT = 500
         private const val MAX_BULLETS_PER_POST = 2

@@ -36,11 +36,12 @@ class DailyDigestFormatterTest {
         assertThat(payload.channel).isEqualTo("whatsapp")
         assertThat(payload.recipient).isEqualTo("whatsapp:+15550000002")
         assertThat(payload.sourceUrl).isNull()
-        assertThat(payload.body).contains("Airwallex FYI - 2026-06-22")
-        assertThat(payload.body).contains("2 new Airwallex updates")
+        assertThat(payload.body).contains("Airwallex FYI - Daily Brief")
+        assertThat(payload.body).contains("2026-06-22")
+        assertThat(payload.body).contains("2 Airwallex updates worth noting")
         assertThat(payload.body).contains("1. First Airwallex update")
         assertThat(payload.body).contains("2. Second Airwallex update")
-        assertThat(payload.body).contains("Key points:")
+        assertThat(payload.body).doesNotContain("Key points:")
         assertThat(payload.body).contains("- First useful point")
         assertThat(payload.body).contains("- Second useful point")
         assertThat(payload.body).doesNotContain("Third useful point")
@@ -54,7 +55,7 @@ class DailyDigestFormatterTest {
     fun `formats exact no change message`() {
         val payload = formatter.formatNoChanges("whatsapp:+15550000002")
 
-        assertThat(payload.body).isEqualTo("Airwallex FYI: No new public Blog or Newsroom updates today.")
+        assertThat(payload.body).isEqualTo("Airwallex FYI - Daily Brief\nNo new public Blog or Newsroom updates today.")
         assertThat(payload.preview).isEqualTo(payload.body)
         assertThat(payload.sourceUrl).isNull()
     }
@@ -121,7 +122,7 @@ class DailyDigestFormatterTest {
 
         assertThat(payload.body.length).isLessThanOrEqualTo(DailyDigestFormatter.MAX_WHATSAPP_BODY_CHARS)
         assertThat(payload.body).contains("+")
-        assertThat(payload.body).contains("more update(s) ready")
+        assertThat(payload.body).contains("more update(s) omitted")
     }
 
     private fun item(
