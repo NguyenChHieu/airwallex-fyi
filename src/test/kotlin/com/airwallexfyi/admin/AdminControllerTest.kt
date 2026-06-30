@@ -1,5 +1,9 @@
 package com.airwallexfyi.admin
 
+import com.airwallexfyi.digests.DigestDeliveryRecord
+import com.airwallexfyi.digests.DigestDeliveryRepository
+import com.airwallexfyi.digests.DigestDeliveryStatus
+import com.airwallexfyi.digests.DigestMessageType
 import com.airwallexfyi.monitor.MonitorApprovalNeeded
 import com.airwallexfyi.monitor.MonitorRunError
 import com.airwallexfyi.monitor.MonitorRunResult
@@ -10,11 +14,19 @@ import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.posts.SourceType
+import com.airwallexfyi.subscribers.SubscriberChannelRecord
+import com.airwallexfyi.subscribers.SubscriberChannelRepository
+import com.airwallexfyi.subscribers.SubscriberChannelType
+import com.airwallexfyi.subscribers.SubscriberRecord
+import com.airwallexfyi.subscribers.SubscriberRepository
+import com.airwallexfyi.subscribers.SubscriberStatus
 import com.airwallexfyi.summaries.AiSummaryClient
 import com.airwallexfyi.summaries.SummaryGenerationException
+import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
 import com.airwallexfyi.summaries.StructuredSummary
 import java.time.Instant
+import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +44,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import tools.jackson.databind.ObjectMapper
 
 @SpringBootTest(
     properties = [
@@ -44,14 +57,21 @@ class AdminControllerTest @Autowired constructor(
     private val mockMvc: MockMvc,
     private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
+    private val subscriberRepository: SubscriberRepository,
+    private val subscriberChannelRepository: SubscriberChannelRepository,
+    private val digestDeliveryRepository: DigestDeliveryRepository,
     private val fakeAiSummaryClient: MutableAiSummaryClient,
 ) {
     @MockitoBean
     lateinit var monitorRunService: MonitorRunService
 
+    private val objectMapper = ObjectMapper()
 
     @BeforeEach
     fun setUp() {
+        digestDeliveryRepository.deleteAll()
+        subscriberChannelRepository.deleteAll()
+        subscriberRepository.deleteAll()
         summaryRepository.deleteAll()
         postRepository.deleteAll()
         `when`(monitorRunService.runOnce()).thenReturn(completedRunResult())
@@ -65,6 +85,61 @@ class AdminControllerTest @Autowired constructor(
             .andExpect(jsonPath("$.status").value("ok"))
             .andExpect(jsonPath("$.dryRun").value(true))
             .andExpect(jsonPath("$.schedulerEnabled").value(false))
+    }
+
+    @Test
+    fun `status endpoint returns subscribers latest digest and latest content hints`() {
+        val telegramChannel = createChannel(SubscriberChannelType.TELEGRAM, "8816257694")
+        createChannel(SubscriberChannelType.WHATSAPP, "whatsapp:+15550000002")
+        createChannel(SubscriberChannelType.TELEGRAM, "999", SubscriberStatus.INACTIVE)
+        val olderPost = postRepository.save(
+            post(
+                url = "https://www.airwallex.com/global/blog/status-older",
+                sourceType = SourceType.BLOG,
+                processingStatus = ProcessingStatus.SUMMARY_READY,
+                discoveredAt = Instant.parse("2026-06-20T00:01:00Z"),
+            ),
+        )
+        val latestPost = postRepository.save(
+            post(
+                url = "https://www.airwallex.com/global/newsroom/status-latest",
+                sourceType = SourceType.NEWSROOM,
+                processingStatus = ProcessingStatus.APPROVAL_NEEDED,
+                discoveredAt = Instant.parse("2026-06-21T00:01:00Z"),
+            ),
+        )
+        summaryRepository.save(summaryRecord(olderPost, "Older summary", Instant.parse("2026-06-20T00:10:00Z")))
+        summaryRepository.save(summaryRecord(latestPost, "Latest summary", Instant.parse("2026-06-21T00:10:00Z")))
+        digestDeliveryRepository.save(
+            digestDelivery(
+                subscriberChannel = telegramChannel,
+                channel = SubscriberChannelType.TELEGRAM,
+                recipient = "8816257694",
+                status = DigestDeliveryStatus.SENT,
+                attemptedAt = Instant.parse("2026-06-21T23:00:00Z"),
+                sentAt = Instant.parse("2026-06-21T23:00:03Z"),
+            ),
+        )
+
+        mockMvc.perform(authorized(get("/admin/status")))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("ok"))
+            .andExpect(jsonPath("$.dryRun").value(true))
+            .andExpect(jsonPath("$.schedulerEnabled").value(false))
+            .andExpect(jsonPath("$.subscribers.telegramActive").value(1))
+            .andExpect(jsonPath("$.subscribers.whatsappActive").value(1))
+            .andExpect(jsonPath("$.latestDigest.localDate").value("2026-06-22"))
+            .andExpect(jsonPath("$.latestDigest.channel").value("telegram"))
+            .andExpect(jsonPath("$.latestDigest.recipient").value("8816257694"))
+            .andExpect(jsonPath("$.latestDigest.messageType").value("NO_CHANGES"))
+            .andExpect(jsonPath("$.latestDigest.status").value("SENT"))
+            .andExpect(jsonPath("$.latestDigest.attemptedAt").value("2026-06-21T23:00:00Z"))
+            .andExpect(jsonPath("$.latestDigest.sentAt").value("2026-06-21T23:00:03Z"))
+            .andExpect(jsonPath("$.latestRunHint.lastDiscoveredPost.url").value(latestPost.url))
+            .andExpect(jsonPath("$.latestRunHint.lastDiscoveredPost.sourceType").value("NEWSROOM"))
+            .andExpect(jsonPath("$.latestRunHint.lastDiscoveredPost.processingStatus").value("APPROVAL_NEEDED"))
+            .andExpect(jsonPath("$.latestRunHint.lastSummary.headline").value("Latest summary"))
+            .andExpect(jsonPath("$.latestRunHint.lastSummary.createdAt").value("2026-06-21T00:10:00Z"))
     }
 
     @Test
@@ -342,6 +417,69 @@ class AdminControllerTest @Autowired constructor(
         articleBody = articleBody,
         processingStatus = processingStatus.name,
     )
+
+    private fun createChannel(
+        channel: String,
+        recipient: String,
+        status: String = SubscriberStatus.ACTIVE,
+    ): SubscriberChannelRecord {
+        val now = Instant.parse("2026-06-21T00:00:00Z")
+        val subscriber = subscriberRepository.save(
+            SubscriberRecord(
+                displayName = "Subscriber $recipient",
+                status = status,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        return subscriberChannelRepository.save(
+            SubscriberChannelRecord(
+                subscriberId = subscriber.identifier(),
+                channel = channel,
+                recipient = recipient,
+                status = status,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+    }
+
+    private fun digestDelivery(
+        subscriberChannel: SubscriberChannelRecord,
+        channel: String,
+        recipient: String,
+        status: String,
+        attemptedAt: Instant,
+        sentAt: Instant?,
+    ): DigestDeliveryRecord = DigestDeliveryRecord(
+        subscriberChannelId = subscriberChannel.identifier(),
+        localDate = LocalDate.of(2026, 6, 22),
+        messageType = DigestMessageType.NO_CHANGES,
+        status = status,
+        recipient = recipient,
+        channel = channel,
+        payloadPreview = "Airwallex FYI - Daily Brief",
+        attemptedAt = attemptedAt,
+        sentAt = sentAt,
+        createdAt = attemptedAt,
+        updatedAt = attemptedAt,
+    )
+
+    private fun summaryRecord(post: PostRecord, headline: String, createdAt: Instant): SummaryRecord =
+        SummaryRecord.from(
+            postId = post.identifier(),
+            summary = StructuredSummary.validated(
+                headline = headline,
+                bullets = listOf("First point", "Second point", "Third point"),
+                whyItMatters = "It gives operators useful context.",
+                tags = listOf("airwallex"),
+                sourceType = SourceType.valueOf(post.sourceType),
+            ),
+            model = "test-model",
+            promptVersion = "test-prompt",
+            objectMapper = objectMapper,
+            now = createdAt,
+        )
 
     private fun authorized(builder: org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder): org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder =
         builder.header(AdminTokenFilter.ADMIN_TOKEN_HEADER, "test-admin-token")

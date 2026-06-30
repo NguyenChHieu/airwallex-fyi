@@ -3,14 +3,20 @@ package com.airwallexfyi.admin
 import com.airwallexfyi.articles.ExtractedArticle
 import com.airwallexfyi.articles.ExtractionSource
 import com.airwallexfyi.config.AppProperties
+import com.airwallexfyi.digests.DigestDeliveryRecord
+import com.airwallexfyi.digests.DigestDeliveryRepository
 import com.airwallexfyi.monitor.MonitorRunService
 import com.airwallexfyi.monitor.PostStateService
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.posts.SourceType
+import com.airwallexfyi.subscribers.SubscriberChannelRepository
+import com.airwallexfyi.subscribers.SubscriberChannelType
+import com.airwallexfyi.subscribers.SubscriberStatus
 import com.airwallexfyi.summaries.ArticleSummaryResult
 import com.airwallexfyi.summaries.ArticleSummaryService
+import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
 import java.time.Instant
 import java.util.UUID
@@ -27,6 +33,8 @@ class AdminController(
     private val appProperties: AppProperties,
     private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
+    private val subscriberChannelRepository: SubscriberChannelRepository,
+    private val digestDeliveryRepository: DigestDeliveryRepository,
     private val postStateService: PostStateService,
     private val articleSummaryService: ArticleSummaryService,
     private val monitorRunService: MonitorRunService,
@@ -36,6 +44,22 @@ class AdminController(
         status = "ok",
         dryRun = appProperties.dryRun,
         schedulerEnabled = appProperties.scheduler.enabled,
+    )
+
+    @GetMapping("/admin/status")
+    fun status(): AdminStatusResponse = AdminStatusResponse(
+        status = "ok",
+        dryRun = appProperties.dryRun,
+        schedulerEnabled = appProperties.scheduler.enabled,
+        subscribers = AdminSubscriberStatusResponse(
+            telegramActive = activeSubscriberCount(SubscriberChannelType.TELEGRAM),
+            whatsappActive = activeSubscriberCount(SubscriberChannelType.WHATSAPP),
+        ),
+        latestDigest = latestDigest()?.let(AdminLatestDigestResponse::from),
+        latestRunHint = AdminLatestRunHintResponse(
+            lastDiscoveredPost = latestDiscoveredPost()?.let(AdminPostHintResponse::from),
+            lastSummary = latestSummary()?.let(AdminSummaryHintResponse::from),
+        ),
     )
 
     @GetMapping("/admin/posts/recent")
@@ -96,6 +120,27 @@ class AdminController(
             }
         }
     }
+
+    private fun activeSubscriberCount(channel: String): Int =
+        subscriberChannelRepository.findByChannelAndStatusOrderByCreatedAtAsc(channel, SubscriberStatus.ACTIVE).size
+
+    private fun latestDigest(): DigestDeliveryRecord? = digestDeliveryRepository.findAll()
+        .maxWithOrNull(
+            compareBy<DigestDeliveryRecord> { it.attemptedAt }
+                .thenBy { it.createdAt },
+        )
+
+    private fun latestDiscoveredPost(): PostRecord? = postRepository.findAll()
+        .maxWithOrNull(
+            compareBy<PostRecord> { it.discoveredAt }
+                .thenBy { it.createdAt },
+        )
+
+    private fun latestSummary(): SummaryRecord? = summaryRepository.findAll()
+        .maxWithOrNull(
+            compareBy<SummaryRecord> { it.createdAt }
+                .thenBy { it.updatedAt },
+        )
 
     private fun PostRecord.toExtractedArticle(): ExtractedArticle = ExtractedArticle(
         url = url,
