@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   schedule:
     # GitHub cron uses UTC. These two slots cover 9am Australia/Sydney across AEST/AEDT.
-    # The schedule gate below skips whichever slot is not 9am Sydney that day.
+    # GitHub can start scheduled jobs late, so the gate allows the 9am hour plus a
+    # small 10am Sydney grace window. The app's duplicate-digest guard prevents repeats.
     - cron: "0 22 * * *"
     - cron: "0 23 * * *"
 
@@ -49,7 +50,7 @@ jobs:
           fi
 
           sydney_hour="$(TZ=Australia/Sydney date '+%H')"
-          if [ "$sydney_hour" = "09" ]; then
+          if [ "$sydney_hour" = "09" ] || [ "$sydney_hour" = "10" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_run=false" >> "$GITHUB_OUTPUT"
