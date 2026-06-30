@@ -10,6 +10,7 @@ import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
 
 object DigestDeliveryStatus {
+    const val PENDING: String = "PENDING"
     const val DRY_RUN: String = "DRY_RUN"
     const val SKIPPED: String = "SKIPPED"
     const val SENT: String = "SENT"

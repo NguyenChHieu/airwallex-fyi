@@ -138,6 +138,35 @@ class DailyDigestServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `pending same date delivery skips duplicate send`() {
+        val now = Instant.parse("2026-06-22T01:00:00Z")
+        val channel = createChannel("whatsapp:+15550003009")
+        digestDeliveryRepository.save(
+            DigestDeliveryRecord(
+                subscriberChannelId = channel.identifier(),
+                localDate = LocalDate.of(2026, 6, 22),
+                messageType = DigestMessageType.NO_CHANGES,
+                status = DigestDeliveryStatus.PENDING,
+                recipient = channel.recipient,
+                channel = channel.channel,
+                payloadPreview = DailyDigestFormatter.NO_CHANGES_TEXT,
+                attemptedAt = now,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        val notifier = FakeWhatsAppNotifier()
+        val service = service(notifier)
+
+        val result = service.sendDailyDigests(now.plusSeconds(60))
+
+        assertThat(result.skippedDuplicateCount).isEqualTo(1)
+        assertThat(result.noChangeCount).isZero()
+        assertThat(result.digestSentCount).isZero()
+        assertThat(notifier.payloads).isEmpty()
+    }
+
+    @Test
     fun `service timezone controls delivery local date`() {
         val channel = createChannel("whatsapp:+15550003005")
         val notifier = FakeWhatsAppNotifier()

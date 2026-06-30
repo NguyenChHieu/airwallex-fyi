@@ -1,7 +1,9 @@
 package com.airwallexfyi.digests
 
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
+import org.springframework.data.jdbc.repository.query.Modifying
 import org.springframework.data.jdbc.repository.query.Query
 import org.springframework.data.repository.CrudRepository
 
@@ -22,4 +24,25 @@ interface DigestDeliveryRepository : CrudRepository<DigestDeliveryRecord, UUID> 
         """,
     )
     fun findMostRecentSuccessfulDelivery(subscriberChannelId: UUID): DigestDeliveryRecord?
+
+    @Modifying
+    @Query(
+        """
+        UPDATE digest_deliveries
+        SET status = :status,
+            provider_message_id = :providerMessageId,
+            error_message = :errorMessage,
+            sent_at = :sentAt,
+            updated_at = :updatedAt
+        WHERE id = :id
+        """,
+    )
+    fun updateAfterAttempt(
+        id: UUID,
+        status: String,
+        providerMessageId: String?,
+        errorMessage: String?,
+        sentAt: Instant?,
+        updatedAt: Instant,
+    ): Int
 }

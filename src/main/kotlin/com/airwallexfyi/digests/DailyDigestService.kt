@@ -13,6 +13,7 @@ import com.airwallexfyi.subscribers.SubscriberStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 
 @Service
@@ -74,6 +75,14 @@ class DailyDigestService(
             dailyDigestFormatter.formatDigest(eligiblePosts, subscriberChannel.recipient, localDate)
         }
 
+        val delivery = try {
+            reserveDelivery(subscriberChannel, localDate, messageType, payload, now)
+        } catch (_: DataIntegrityViolationException) {
+            counters.skippedDuplicateCount += 1
+            counters.addDeliverySample("${subscriberChannel.recipient} $messageType ${DigestDeliveryStatus.SKIPPED_DUPLICATE}")
+            return
+        }
+
         val notificationResult = try {
             sendNotification(subscriberChannel, payload)
         } catch (ex: RuntimeException) {
@@ -87,22 +96,13 @@ class DailyDigestService(
 
         val deliveryStatus = notificationResult.status.name
         val sentAt = if (notificationResult.status in NON_SENT_STATUSES) null else now
-        val delivery = digestDeliveryRepository.save(
-            DigestDeliveryRecord(
-                subscriberChannelId = subscriberChannel.identifier(),
-                localDate = localDate,
-                messageType = messageType,
-                status = deliveryStatus,
-                recipient = subscriberChannel.recipient,
-                channel = subscriberChannel.channel,
-                payloadPreview = notificationResult.payloadPreview,
-                providerMessageId = notificationResult.providerMessageId,
-                errorMessage = notificationResult.errorMessage,
-                attemptedAt = now,
-                sentAt = sentAt,
-                createdAt = now,
-                updatedAt = now,
-            ),
+        digestDeliveryRepository.updateAfterAttempt(
+            id = delivery.identifier(),
+            status = deliveryStatus,
+            providerMessageId = notificationResult.providerMessageId,
+            errorMessage = notificationResult.errorMessage,
+            sentAt = sentAt,
+            updatedAt = now,
         )
 
         if (eligiblePosts.isNotEmpty()) {
@@ -132,6 +132,28 @@ class DailyDigestService(
             else -> counters.digestSentCount += 1
         }
     }
+
+    private fun reserveDelivery(
+        subscriberChannel: SubscriberChannelRecord,
+        localDate: LocalDate,
+        messageType: String,
+        payload: WhatsAppAlertPayload,
+        now: Instant,
+    ): DigestDeliveryRecord =
+        digestDeliveryRepository.save(
+            DigestDeliveryRecord(
+                subscriberChannelId = subscriberChannel.identifier(),
+                localDate = localDate,
+                messageType = messageType,
+                status = DigestDeliveryStatus.PENDING,
+                recipient = subscriberChannel.recipient,
+                channel = subscriberChannel.channel,
+                payloadPreview = payload.preview,
+                attemptedAt = now,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
 
     private fun sendNotification(subscriberChannel: SubscriberChannelRecord, payload: WhatsAppAlertPayload): NotificationResult =
         when (subscriberChannel.channel) {
