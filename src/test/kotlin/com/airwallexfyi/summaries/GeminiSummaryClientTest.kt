@@ -46,6 +46,8 @@ class GeminiSummaryClientTest {
         assertThat(transport.requestBody["generationConfig"].toString()).contains("source_type")
         assertThat(transport.requestBody.toString()).contains("daily digest")
         assertThat(transport.requestBody.toString()).contains("not a breaking-news notification")
+        assertThat(transport.requestBody.toString()).contains("complete, self-contained sentences")
+        assertThat(transport.requestBody.toString()).contains("Do not truncate thoughts")
     }
 
     @Test

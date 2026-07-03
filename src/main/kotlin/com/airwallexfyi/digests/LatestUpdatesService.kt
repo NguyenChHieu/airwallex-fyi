@@ -39,27 +39,25 @@ class LatestUpdatesService(
             items.forEachIndexed { index, item ->
                 val summary = item.summary.toStructuredSummary(objectMapper)
                 appendLine()
-                appendLine("${index + 1}. ${summary.headline.boundedInline(MAX_HEADLINE_CHARS)}")
-                summary.bullets.take(MAX_BULLETS_PER_POST).forEach { bullet ->
-                    appendLine("- ${bullet.boundedInline(MAX_BULLET_CHARS)}")
+                appendLine("${index + 1}. ${summary.headline.cleanInline()}")
+                summary.bullets.forEach { bullet ->
+                    appendLine("- ${bullet.cleanInline()}")
                 }
+                appendLine()
+                appendLine("Why it matters:")
+                appendLine(summary.whyItMatters.cleanInline())
+                appendLine()
                 appendLine("Read: ${item.post.url}")
             }
         }.trimEnd()
     }
 
-    private fun String.boundedInline(maxLength: Int): String {
-        val cleaned = trim().replace(WHITESPACE, " ")
-        return if (cleaned.length <= maxLength) cleaned else cleaned.take(maxLength - 3).trimEnd() + "..."
-    }
+    private fun String.cleanInline(): String = trim().replace(WHITESPACE, " ")
 
     companion object {
         const val NO_SUMMARIES_TEXT: String = "Airwallex FYI: No summarized updates are available yet."
         private const val DEFAULT_LIMIT = 3
         private const val MAX_LIMIT = 5
-        private const val MAX_BULLETS_PER_POST = 2
-        private const val MAX_HEADLINE_CHARS = 110
-        private const val MAX_BULLET_CHARS = 110
         private val WHITESPACE = Regex("\\s+")
     }
 }

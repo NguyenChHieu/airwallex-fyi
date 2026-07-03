@@ -38,14 +38,14 @@ class DailyDigestFormatterTest {
         assertThat(payload.sourceUrl).isNull()
         assertThat(payload.body).contains("Airwallex FYI - Daily Brief")
         assertThat(payload.body).contains("2026-06-22")
-        assertThat(payload.body).contains("2 Airwallex updates worth noting")
+        assertThat(payload.body).contains("2 Airwallex updates worth noting.")
         assertThat(payload.body).contains("1. First Airwallex update")
         assertThat(payload.body).contains("2. Second Airwallex update")
         assertThat(payload.body).doesNotContain("Key points:")
         assertThat(payload.body).contains("- First useful point")
         assertThat(payload.body).contains("- Second useful point")
-        assertThat(payload.body).doesNotContain("Third useful point")
-        assertThat(payload.body).contains("Why it matters: It helps teams track payment operations.")
+        assertThat(payload.body).contains("- Third useful point")
+        assertThat(payload.body).contains("Why it matters:\nIt helps teams track payment operations.")
         assertThat(payload.body).contains("Read: https://www.airwallex.com/global/blog/first-update")
         assertThat(payload.body).contains("Read: https://www.airwallex.com/global/newsroom/second-update")
         assertThat(payload.preview).isEqualTo(payload.body)
@@ -123,6 +123,30 @@ class DailyDigestFormatterTest {
         assertThat(payload.body.length).isLessThanOrEqualTo(DailyDigestFormatter.MAX_WHATSAPP_BODY_CHARS)
         assertThat(payload.body).contains("+")
         assertThat(payload.body).contains("more update(s) omitted")
+    }
+
+    @Test
+    fun `allows longer telegram digest without clipping summary fields`() {
+        val item = item(
+            url = "https://www.airwallex.com/global/blog/long-telegram-update",
+            headline = "Long Airwallex update " + "A".repeat(150),
+            bullets = listOf(
+                "First complete detail " + "B".repeat(160),
+                "Second complete detail " + "C".repeat(160),
+                "Third complete detail " + "D".repeat(160),
+            ),
+            whyItMatters = "Important complete context " + "E".repeat(180),
+        )
+
+        val payload = formatter.formatDigest(listOf(item), "8816257694", LocalDate.of(2026, 6, 22))
+
+        assertThat(payload.body).contains("A".repeat(150))
+        assertThat(payload.body).contains("B".repeat(160))
+        assertThat(payload.body).contains("C".repeat(160))
+        assertThat(payload.body).contains("D".repeat(160))
+        assertThat(payload.body).contains("E".repeat(180))
+        assertThat(payload.body).doesNotContain("...")
+        assertThat(payload.body.length).isLessThanOrEqualTo(DailyDigestFormatter.MAX_TELEGRAM_BODY_CHARS)
     }
 
     private fun item(
