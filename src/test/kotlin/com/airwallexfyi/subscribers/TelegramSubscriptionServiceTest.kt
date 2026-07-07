@@ -1,6 +1,10 @@
 package com.airwallexfyi.subscribers
 
 import com.airwallexfyi.config.AppProperties
+import com.airwallexfyi.digests.DigestDeliveryRecord
+import com.airwallexfyi.digests.DigestDeliveryRepository
+import com.airwallexfyi.digests.DigestDeliveryStatus
+import com.airwallexfyi.digests.DigestMessageType
 import com.airwallexfyi.digests.LatestUpdatesService
 import com.airwallexfyi.notifications.TelegramChat
 import com.airwallexfyi.notifications.TelegramMessage
@@ -16,6 +20,7 @@ import com.airwallexfyi.summaries.StructuredSummary
 import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
 import java.time.Instant
+import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -36,6 +41,7 @@ import tools.jackson.databind.ObjectMapper
 class TelegramSubscriptionServiceTest @Autowired constructor(
     private val subscriberRepository: SubscriberRepository,
     private val subscriberChannelRepository: SubscriberChannelRepository,
+    private val digestDeliveryRepository: DigestDeliveryRepository,
     private val postRepository: PostRepository,
     private val summaryRepository: SummaryRepository,
     private val appStateRepository: AppStateRepository,
@@ -44,6 +50,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
 ) {
     @BeforeEach
     fun clearData() {
+        digestDeliveryRepository.deleteAll()
         subscriberChannelRepository.deleteAll()
         subscriberRepository.deleteAll()
         summaryRepository.deleteAll()
@@ -172,6 +179,47 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `status replies with subscription digest and latest post state`() {
+        val now = Instant.parse("2026-06-27T00:00:00Z")
+        val channel = createTelegramChannel("123456789", SubscriberStatus.ACTIVE, now)
+        val latestPost = createSummarizedPost(
+            slug = "status-update",
+            headline = "Status Airwallex update",
+            now = Instant.parse("2026-06-27T01:00:00Z"),
+        )
+        digestDeliveryRepository.save(
+            DigestDeliveryRecord(
+                subscriberChannelId = channel.identifier(),
+                localDate = LocalDate.of(2026, 6, 27),
+                messageType = DigestMessageType.DIGEST,
+                status = DigestDeliveryStatus.SENT,
+                recipient = "123456789",
+                channel = SubscriberChannelType.TELEGRAM,
+                attemptedAt = now.plusSeconds(120),
+                sentAt = now.plusSeconds(121),
+                createdAt = now.plusSeconds(120),
+                updatedAt = now.plusSeconds(121),
+            ),
+        )
+        val transport = FakeTelegramTransport(
+            updates = listOf(update(202, "/status", 123456789, username = "henry")),
+        )
+        val service = service(transport)
+
+        val result = service.syncSubscriptions(Instant.parse("2026-06-28T00:00:00Z"))
+
+        val body = transport.sentBodies.single()
+        assertThat(result.processedCount).isEqualTo(1)
+        assertThat(result.subscribedCount).isZero()
+        assertThat(body).contains("Airwallex FYI status")
+        assertThat(body).contains("Subscription: active")
+        assertThat(body).contains("Latest digest: SENT DIGEST on 2026-06-27")
+        assertThat(body).contains("Latest update seen: ${latestPost.title}")
+        assertThat(body).contains("Mode: Render webhook + GitHub Actions daily")
+        assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("202")
+    }
+
+    @Test
     fun `dry run skips telegram network calls`() {
         val transport = FakeTelegramTransport(
             updates = listOf(update(103, "/start", 123456789)),
@@ -233,9 +281,15 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         subscriberRepository = subscriberRepository,
         subscriberChannelRepository = subscriberChannelRepository,
         latestUpdatesService = LatestUpdatesService(summaryRepository, postRepository, objectMapper),
+        telegramStatusService = TelegramStatusService(
+            properties = properties,
+            subscriberChannelRepository = subscriberChannelRepository,
+            digestDeliveryRepository = digestDeliveryRepository,
+            postRepository = postRepository,
+        ),
     )
 
-    private fun createTelegramChannel(recipient: String, status: String, now: Instant) {
+    private fun createTelegramChannel(recipient: String, status: String, now: Instant): SubscriberChannelRecord {
         val subscriber = subscriberRepository.save(
             SubscriberRecord(
                 displayName = "Telegram $recipient",
@@ -244,7 +298,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
                 updatedAt = now,
             ),
         )
-        subscriberChannelRepository.save(
+        return subscriberChannelRepository.save(
             SubscriberChannelRecord(
                 subscriberId = subscriber.identifier(),
                 channel = SubscriberChannelType.TELEGRAM,

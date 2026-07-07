@@ -18,6 +18,7 @@ class TelegramSubscriptionService(
     private val subscriberRepository: SubscriberRepository,
     private val subscriberChannelRepository: SubscriberChannelRepository,
     private val latestUpdatesService: LatestUpdatesService,
+    private val telegramStatusService: TelegramStatusService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -102,12 +103,17 @@ class TelegramSubscriptionService(
             }
             TelegramCommand.HELP -> sendConfirmation(
                 chat.id.toString(),
-                "Airwallex FYI commands: /start subscribes, /stop unsubscribes, /latest shows recent updates.",
+                "Airwallex FYI commands: /start subscribes, /stop unsubscribes, /latest shows recent updates, /status checks bot state.",
                 counters,
             )
             TelegramCommand.LATEST -> sendConfirmation(
                 chat.id.toString(),
                 latestUpdatesService.formatLatest(),
+                counters,
+            )
+            TelegramCommand.STATUS -> sendConfirmation(
+                chat.id.toString(),
+                telegramStatusService.formatStatus(chat.id.toString()),
                 counters,
             )
         }
@@ -183,6 +189,7 @@ class TelegramSubscriptionService(
             "/stop" -> TelegramCommand.STOP
             "/help" -> TelegramCommand.HELP
             "/latest" -> TelegramCommand.LATEST
+            "/status" -> TelegramCommand.STATUS
             else -> null
         }
     }
@@ -227,6 +234,7 @@ class TelegramSubscriptionService(
         STOP,
         HELP,
         LATEST,
+        STATUS,
     }
 
     private companion object {
