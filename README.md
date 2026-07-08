@@ -1,5 +1,9 @@
 # Airwallex FYI
 
+<p align="center">
+  <img src="docs/assets/airwallex-fyi.png" alt="Airwallex FYI bot icon" width="160" />
+</p>
+
 ![Daily Airwallex FYI](https://img.shields.io/github/actions/workflow/status/NguyenChHieu/airwallex-fyi/daily-airwallex-fyi.yml?branch=main&label=daily%20digest)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)
@@ -20,7 +24,7 @@ Production-style digest bot for public Airwallex Blog and Newsroom updates. It d
 
 ## Using the Bot
 
-Users interact with Airwallex FYI through Telegram after the bot webhook is connected.
+Users interact with Airwallex FYI through Telegram after the bot webhook is connected: [@AirwallexFYIBot](https://t.me/AirwallexFYIBot).
 
 | Command | Purpose |
 | --- | --- |
@@ -29,7 +33,7 @@ Users interact with Airwallex FYI through Telegram after the bot webhook is conn
 | `/latest` | Show the latest summarized updates already stored in the database. |
 | `/status` | Check subscription state, latest digest, latest update seen, and runtime mode. |
 
-Daily digests are sent automatically when the scheduled worker finds new public Airwallex updates. Setup details live in [Setup and deployment](docs/SETUP.md).
+Daily digests are sent automatically when the scheduled worker finds new public Airwallex updates. The bot's public Telegram name, avatar, description, and command menu are managed in BotFather; setup details live in [Setup and deployment](docs/SETUP.md).
 
 ## Production Snapshot
 
