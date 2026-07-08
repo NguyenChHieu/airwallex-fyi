@@ -5,11 +5,9 @@ import org.flywaydb.core.api.migration.Context
 
 class V6__EnableRowLevelSecurityForFlywayHistory : BaseJavaMigration() {
     override fun migrate(context: Context) {
-        val databaseProduct = context.connection.metaData.databaseProductName.lowercase()
-        if (!databaseProduct.contains("postgresql")) return
-
-        context.connection.createStatement().use { statement ->
-            statement.execute("ALTER TABLE IF EXISTS public.flyway_schema_history ENABLE ROW LEVEL SECURITY")
-        }
+        // Flyway holds locks around its schema-history table while migrations run.
+        // Altering that same table from inside Flyway can hit statement timeouts on
+        // Supabase. Production was fixed manually; this marker lets Flyway record
+        // the resolved state without blocking application startup.
     }
 }
