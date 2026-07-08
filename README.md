@@ -18,6 +18,19 @@ Production-style digest bot for public Airwallex Blog and Newsroom updates. It d
 - Supports `/start`, `/stop`, `/latest`, and `/status`.
 - Keeps optional Twilio WhatsApp delivery available.
 
+## Using the Bot
+
+Users interact with Airwallex FYI through Telegram after the bot webhook is connected.
+
+| Command | Purpose |
+| --- | --- |
+| `/start` | Subscribe this chat to daily Airwallex FYI digests. |
+| `/stop` | Unsubscribe this chat. |
+| `/latest` | Show the latest summarized updates already stored in the database. |
+| `/status` | Check subscription state, latest digest, latest update seen, and runtime mode. |
+
+Daily digests are sent automatically when the scheduled worker finds new public Airwallex updates. Setup details live in [Setup and deployment](docs/SETUP.md).
+
 ## Production Snapshot
 
 | Area | Current |
