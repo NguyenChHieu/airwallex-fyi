@@ -10,6 +10,7 @@ import com.airwallexfyi.subscribers.SubscriberChannelRecord
 import com.airwallexfyi.subscribers.SubscriberChannelRepository
 import com.airwallexfyi.subscribers.SubscriberChannelType
 import com.airwallexfyi.subscribers.SubscriberStatus
+import com.airwallexfyi.subscribers.TelegramChatAllowlist
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -53,6 +54,11 @@ class DailyDigestService(
             subscriberChannel.identifier(),
             localDate,
         )
+        if (!subscriberChannel.isAllowedByCurrentConfig()) {
+            counters.skippedAccessCount += 1
+            counters.addDeliverySample("${subscriberChannel.recipient} ACCESS ${DigestDeliveryStatus.SKIPPED}")
+            return
+        }
         if (existing != null) {
             if (existing.status != DigestDeliveryStatus.FAILED) {
                 counters.skippedDuplicateCount += 1
@@ -167,6 +173,10 @@ class DailyDigestService(
             )
         }
 
+    private fun SubscriberChannelRecord.isAllowedByCurrentConfig(): Boolean =
+        channel != SubscriberChannelType.TELEGRAM ||
+            TelegramChatAllowlist.allows(properties.telegram.allowedChatIds, recipient)
+
     private fun Throwable.sanitizedReason(): String =
         (message ?: javaClass.simpleName).lineSequence().firstOrNull()?.take(ERROR_LIMIT) ?: javaClass.simpleName
 
@@ -174,6 +184,7 @@ class DailyDigestService(
         var digestSentCount: Int = 0
         var noChangeCount: Int = 0
         var skippedDuplicateCount: Int = 0
+        var skippedAccessCount: Int = 0
         var failedCount: Int = 0
         var twilioCallsTriggered: Boolean = false
         private val deliverySamples = mutableListOf<String>()
@@ -190,6 +201,7 @@ class DailyDigestService(
             digestSentCount = digestSentCount,
             noChangeCount = noChangeCount,
             skippedDuplicateCount = skippedDuplicateCount,
+            skippedAccessCount = skippedAccessCount,
             failedCount = failedCount,
             sampleDeliveries = deliverySamples.toList(),
             sampleErrors = errorSamples.toList(),
@@ -216,6 +228,7 @@ data class DailyDigestRunResult(
     val digestSentCount: Int = 0,
     val noChangeCount: Int = 0,
     val skippedDuplicateCount: Int = 0,
+    val skippedAccessCount: Int = 0,
     val failedCount: Int = 0,
     val sampleDeliveries: List<String> = emptyList(),
     val sampleErrors: List<String> = emptyList(),

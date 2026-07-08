@@ -23,6 +23,8 @@ The example uses H2. For cloud Postgres, replace `DATABASE_*`.
 
 Leave `TELEGRAM_CHAT_ID` blank if users should subscribe themselves with `/start`; the next run processes it.
 
+To keep the bot private, set `TELEGRAM_ALLOWED_CHAT_IDS` to a comma-separated list of allowed chat IDs. Leave it blank for an open bot.
+
 Commands:
 
 - `/start` subscribes the chat.
@@ -62,6 +64,7 @@ Optional:
 
 ```text
 TELEGRAM_CHAT_ID
+TELEGRAM_ALLOWED_CHAT_IDS
 ```
 
 Then run `Daily Airwallex FYI` from the Actions tab. Scheduled runs target `9:00am Australia/Sydney`.

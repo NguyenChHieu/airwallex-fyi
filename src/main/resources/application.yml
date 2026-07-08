@@ -29,6 +29,7 @@ airwallex-fyi:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     chat-id: ${TELEGRAM_CHAT_ID:}
     webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
+    allowed-chat-ids: ${TELEGRAM_ALLOWED_CHAT_IDS:}
   digest:
     time-zone: ${DIGEST_TIME_ZONE:Australia/Sydney}
   scheduler:

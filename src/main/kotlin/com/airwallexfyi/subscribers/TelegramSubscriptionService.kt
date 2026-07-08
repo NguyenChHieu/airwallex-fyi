@@ -2,6 +2,7 @@ package com.airwallexfyi.subscribers
 
 import com.airwallexfyi.config.AppProperties
 import com.airwallexfyi.digests.LatestUpdatesService
+import com.airwallexfyi.notifications.MessageBodyLimits
 import com.airwallexfyi.notifications.TelegramChat
 import com.airwallexfyi.notifications.TelegramTransport
 import com.airwallexfyi.notifications.TelegramUpdate
@@ -84,6 +85,14 @@ class TelegramSubscriptionService(
         val message = update.message ?: return
         val command = message.text.toCommand() ?: return
         val chat = message.chat
+        if (!chat.isAllowed()) {
+            sendConfirmation(
+                chat.id.toString(),
+                "Airwallex FYI is currently private. Ask the owner to add this chat ID: ${chat.id}",
+                counters,
+            )
+            return
+        }
         when (command) {
             TelegramCommand.START -> {
                 if (activate(chat, now)) counters.subscribedCount += 1
@@ -108,7 +117,7 @@ class TelegramSubscriptionService(
             )
             TelegramCommand.LATEST -> sendConfirmation(
                 chat.id.toString(),
-                latestUpdatesService.formatLatest(),
+                latestUpdatesService.formatLatest(maxBodyChars = MessageBodyLimits.TELEGRAM),
                 counters,
             )
             TelegramCommand.STATUS -> sendConfirmation(
@@ -192,6 +201,10 @@ class TelegramSubscriptionService(
             "/status" -> TelegramCommand.STATUS
             else -> null
         }
+    }
+
+    private fun TelegramChat.isAllowed(): Boolean {
+        return TelegramChatAllowlist.allows(properties.telegram.allowedChatIds, id.toString())
     }
 
     private fun TelegramChat.displayName(): String =

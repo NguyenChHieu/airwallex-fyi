@@ -102,6 +102,28 @@ class DailyDigestServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `skips telegram digest for active subscriber outside allowlist`() {
+        val channel = createChannel("123456789", SubscriberChannelType.TELEGRAM)
+        createSummarizedPost("https://www.airwallex.com/global/blog/telegram-allowlist-${System.nanoTime()}")
+        val telegramNotifier = FakeTelegramNotifier()
+        val service = service(
+            notifier = FakeWhatsAppNotifier(),
+            telegramNotifier = telegramNotifier,
+            properties = AppProperties(
+                telegram = AppProperties.Telegram(allowedChatIds = "987654321"),
+            ),
+        )
+
+        val result = service.sendDailyDigests(Instant.parse("2026-06-22T01:00:00Z"))
+
+        assertThat(result.skippedAccessCount).isEqualTo(1)
+        assertThat(result.digestSentCount).isZero()
+        assertThat(telegramNotifier.payloads).isEmpty()
+        assertThat(digestDeliveryRepository.findBySubscriberChannelIdAndLocalDate(channel.identifier(), LocalDate.of(2026, 6, 22)))
+            .isNull()
+    }
+
+    @Test
     fun `sends no change message with delivery row and no post links`() {
         val channel = createChannel("whatsapp:+15550003003")
         val notifier = FakeWhatsAppNotifier()

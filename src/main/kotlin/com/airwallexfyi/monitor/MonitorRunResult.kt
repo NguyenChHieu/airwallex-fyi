@@ -16,6 +16,7 @@ data class MonitorRunResult(
     val digestSentCount: Int = 0,
     val digestNoChangeCount: Int = 0,
     val digestSkippedDuplicateCount: Int = 0,
+    val digestSkippedAccessCount: Int = 0,
     val digestFailedCount: Int = 0,
     val sampleUrls: MonitorRunSampleUrls = MonitorRunSampleUrls(),
     val sampleErrors: List<MonitorRunError> = emptyList(),

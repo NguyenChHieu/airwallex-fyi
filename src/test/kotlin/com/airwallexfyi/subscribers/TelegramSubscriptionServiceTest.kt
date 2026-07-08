@@ -6,6 +6,7 @@ import com.airwallexfyi.digests.DigestDeliveryRepository
 import com.airwallexfyi.digests.DigestDeliveryStatus
 import com.airwallexfyi.digests.DigestMessageType
 import com.airwallexfyi.digests.LatestUpdatesService
+import com.airwallexfyi.notifications.MessageBodyLimits
 import com.airwallexfyi.notifications.TelegramChat
 import com.airwallexfyi.notifications.TelegramMessage
 import com.airwallexfyi.notifications.TelegramSendResponse
@@ -179,6 +180,81 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `latest reply respects telegram message cap`() {
+        (1..5).forEach { index ->
+            createSummarizedPost(
+                slug = "long-latest-$index",
+                headline = "Long Airwallex update $index " + "A".repeat(220),
+                now = Instant.parse("2026-06-27T00:0${index}:00Z"),
+                bullets = listOf(
+                    "First complete detail $index " + "B".repeat(260),
+                    "Second complete detail $index " + "C".repeat(260),
+                    "Third complete detail $index " + "D".repeat(260),
+                ),
+                whyItMatters = "Important complete context $index " + "E".repeat(320),
+            )
+        }
+        val transport = FakeTelegramTransport(
+            updates = listOf(update(205, "/latest", 123456789, username = "henry")),
+        )
+        val service = service(transport)
+
+        service.syncSubscriptions(Instant.parse("2026-06-28T00:00:00Z"))
+
+        val body = transport.sentBodies.single()
+        assertThat(body.length).isLessThanOrEqualTo(MessageBodyLimits.TELEGRAM)
+        assertThat(body).contains("more update(s) omitted")
+    }
+
+    @Test
+    fun `allowlist rejects unknown telegram chat without subscribing`() {
+        val transport = FakeTelegramTransport(
+            updates = listOf(update(206, "/start", 123456789, username = "henry")),
+        )
+        val service = service(
+            transport,
+            AppProperties(
+                dryRun = false,
+                telegram = AppProperties.Telegram(
+                    botToken = "test-token",
+                    allowedChatIds = "987654321",
+                ),
+            ),
+        )
+
+        val result = service.syncSubscriptions(Instant.parse("2026-06-28T00:00:00Z"))
+
+        assertThat(result.processedCount).isEqualTo(1)
+        assertThat(result.subscribedCount).isZero()
+        assertThat(subscriberChannelRepository.count()).isZero()
+        assertThat(transport.sentBodies.single()).contains("currently private")
+        assertThat(transport.sentBodies.single()).contains("123456789")
+    }
+
+    @Test
+    fun `allowlist accepts configured telegram chat`() {
+        val transport = FakeTelegramTransport(
+            updates = listOf(update(207, "/start", 123456789, username = "henry")),
+        )
+        val service = service(
+            transport,
+            AppProperties(
+                dryRun = false,
+                telegram = AppProperties.Telegram(
+                    botToken = "test-token",
+                    allowedChatIds = "987654321, 123456789",
+                ),
+            ),
+        )
+
+        val result = service.syncSubscriptions(Instant.parse("2026-06-28T00:00:00Z"))
+
+        assertThat(result.subscribedCount).isEqualTo(1)
+        assertThat(subscriberChannelRepository.findByChannelAndRecipient(SubscriberChannelType.TELEGRAM, "123456789"))
+            .isNotNull
+    }
+
+    @Test
     fun `status replies with subscription digest and latest post state`() {
         val now = Instant.parse("2026-06-27T00:00:00Z")
         val channel = createTelegramChannel("123456789", SubscriberStatus.ACTIVE, now)
@@ -328,7 +404,13 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         ),
     )
 
-    private fun createSummarizedPost(slug: String, headline: String, now: Instant): PostRecord {
+    private fun createSummarizedPost(
+        slug: String,
+        headline: String,
+        now: Instant,
+        bullets: List<String> = listOf("First key point", "Second key point", "Third key point"),
+        whyItMatters: String = "It helps track Airwallex changes.",
+    ): PostRecord {
         val url = "https://www.airwallex.com/global/blog/$slug"
         val post = postRepository.save(
             PostRecord(
@@ -347,8 +429,8 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
                 postId = post.identifier(),
                 summary = StructuredSummary.validated(
                     headline = headline,
-                    bullets = listOf("First key point", "Second key point", "Third key point"),
-                    whyItMatters = "It helps track Airwallex changes.",
+                    bullets = bullets,
+                    whyItMatters = whyItMatters,
                     tags = listOf("payments"),
                     sourceType = SourceType.BLOG,
                 ),

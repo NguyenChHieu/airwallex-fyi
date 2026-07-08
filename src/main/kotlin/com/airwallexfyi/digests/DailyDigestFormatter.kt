@@ -1,6 +1,7 @@
 package com.airwallexfyi.digests
 
 import com.airwallexfyi.notifications.WhatsAppAlertPayload
+import com.airwallexfyi.notifications.MessageBodyLimits
 import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.summaries.toStructuredSummary
 import java.time.LocalDate
@@ -37,8 +38,9 @@ class DailyDigestFormatter(
                 }
                 val remainingCount = items.size - index - 1
                 val omittedLine = if (remainingCount > 0) "\n+ $remainingCount more update(s) omitted to keep this brief." else ""
-                if (length + section.length + omittedLine.length > maxBodyCharsFor(recipient)) {
-                    appendOmittedLineIfFits(remainingCount + 1, maxBodyCharsFor(recipient))
+                val maxBodyChars = MessageBodyLimits.forRecipient(recipient)
+                if (length + section.length + omittedLine.length > maxBodyChars) {
+                    appendOmittedLineIfFits(remainingCount + 1, maxBodyChars)
                     return@buildString
                 }
                 append(section)
@@ -77,14 +79,11 @@ class DailyDigestFormatter(
 
     private fun String.pluralized(count: Int): String = if (count == 1) this else "${this}s"
 
-    private fun maxBodyCharsFor(recipient: String): Int =
-        if (recipient.startsWith("whatsapp:", ignoreCase = true)) MAX_WHATSAPP_BODY_CHARS else MAX_TELEGRAM_BODY_CHARS
-
     companion object {
         const val CHANNEL: String = "whatsapp"
         const val NO_CHANGES_TEXT: String = "Airwallex FYI - Daily Brief\nNo new public Blog or Newsroom updates today."
-        const val MAX_WHATSAPP_BODY_CHARS = 1500
-        const val MAX_TELEGRAM_BODY_CHARS = 3900
+        const val MAX_WHATSAPP_BODY_CHARS = MessageBodyLimits.WHATSAPP
+        const val MAX_TELEGRAM_BODY_CHARS = MessageBodyLimits.TELEGRAM
         private const val PREVIEW_LIMIT = 500
         private val WHITESPACE = Regex("\\s+")
     }

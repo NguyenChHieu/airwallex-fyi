@@ -2,6 +2,7 @@ package com.airwallexfyi.digests
 
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
+import com.airwallexfyi.notifications.MessageBodyLimits
 import com.airwallexfyi.summaries.SummaryRepository
 import com.airwallexfyi.summaries.toStructuredSummary
 import org.springframework.stereotype.Service
@@ -13,7 +14,10 @@ class LatestUpdatesService(
     private val postRepository: PostRepository,
     private val objectMapper: ObjectMapper,
 ) {
-    fun formatLatest(limit: Int = DEFAULT_LIMIT): String {
+    fun formatLatest(
+        limit: Int = DEFAULT_LIMIT,
+        maxBodyChars: Int = MessageBodyLimits.TELEGRAM,
+    ): String {
         val postsById = postRepository.findAll().associateBy { it.identifier() }
         val items = summaryRepository.findAll()
             .asSequence()
@@ -38,21 +42,37 @@ class LatestUpdatesService(
             appendLine("Airwallex FYI - latest updates")
             items.forEachIndexed { index, item ->
                 val summary = item.summary.toStructuredSummary(objectMapper)
-                appendLine()
-                appendLine("${index + 1}. ${summary.headline.cleanInline()}")
-                summary.bullets.forEach { bullet ->
-                    appendLine("- ${bullet.cleanInline()}")
+                val section = buildString {
+                    appendLine()
+                    appendLine("${index + 1}. ${summary.headline.cleanInline()}")
+                    summary.bullets.forEach { bullet ->
+                        appendLine("- ${bullet.cleanInline()}")
+                    }
+                    appendLine()
+                    appendLine("Why it matters:")
+                    appendLine(summary.whyItMatters.cleanInline())
+                    appendLine()
+                    appendLine("Read: ${item.post.url}")
                 }
-                appendLine()
-                appendLine("Why it matters:")
-                appendLine(summary.whyItMatters.cleanInline())
-                appendLine()
-                appendLine("Read: ${item.post.url}")
+                val remainingCount = items.size - index
+                if (length + section.length > maxBodyChars) {
+                    appendOmittedLineIfFits(remainingCount, maxBodyChars)
+                    return@buildString
+                }
+                append(section)
             }
         }.trimEnd()
     }
 
     private fun String.cleanInline(): String = trim().replace(WHITESPACE, " ")
+
+    private fun StringBuilder.appendOmittedLineIfFits(omittedCount: Int, maxBodyChars: Int) {
+        if (omittedCount <= 0) return
+        val line = "\n\n+ $omittedCount more update(s) omitted to keep this brief."
+        if (length + line.length <= maxBodyChars) {
+            append(line)
+        }
+    }
 
     companion object {
         const val NO_SUMMARIES_TEXT: String = "Airwallex FYI: No summarized updates are available yet."

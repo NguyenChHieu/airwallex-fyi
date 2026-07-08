@@ -161,6 +161,7 @@ private class MonitorRunAccumulator(
     private var digestSentCount = 0
     private var digestNoChangeCount = 0
     private var digestSkippedDuplicateCount = 0
+    private var digestSkippedAccessCount = 0
     private var digestFailedCount = 0
     private var twilioCallsTriggered = false
     private val seededUrls = mutableListOf<String>()
@@ -212,6 +213,7 @@ private class MonitorRunAccumulator(
         digestSentCount += result.digestSentCount
         digestNoChangeCount += result.noChangeCount
         digestSkippedDuplicateCount += result.skippedDuplicateCount
+        digestSkippedAccessCount += result.skippedAccessCount
         digestFailedCount += result.failedCount
         twilioCallsTriggered = twilioCallsTriggered || result.twilioCallsTriggered
         result.samplePayloads.forEach { addPayload(it) }
@@ -253,7 +255,7 @@ private class MonitorRunAccumulator(
         val failureTotal = failedCount + summaryFailedCount + digestFailedCount
         val status = when {
             failureTotal == 0 -> MonitorRunStatus.COMPLETED
-            seededCount + baselinedCount + newCount + updatedCount + skippedCount + summarizedCount + approvalNeededCount + digestSentCount + digestNoChangeCount + digestSkippedDuplicateCount > 0 -> MonitorRunStatus.PARTIAL_FAILURE
+            seededCount + baselinedCount + newCount + updatedCount + skippedCount + summarizedCount + approvalNeededCount + digestSentCount + digestNoChangeCount + digestSkippedDuplicateCount + digestSkippedAccessCount > 0 -> MonitorRunStatus.PARTIAL_FAILURE
             else -> MonitorRunStatus.FAILED
         }
         val message = when (status) {
@@ -278,6 +280,7 @@ private class MonitorRunAccumulator(
             digestSentCount = digestSentCount,
             digestNoChangeCount = digestNoChangeCount,
             digestSkippedDuplicateCount = digestSkippedDuplicateCount,
+            digestSkippedAccessCount = digestSkippedAccessCount,
             digestFailedCount = digestFailedCount,
             sampleUrls = MonitorRunSampleUrls(
                 seeded = seededUrls,

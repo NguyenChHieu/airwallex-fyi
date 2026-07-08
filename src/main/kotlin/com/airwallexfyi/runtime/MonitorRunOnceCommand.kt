@@ -29,7 +29,7 @@ class DefaultMonitorRunOnceCommand(
 
     private fun log(result: MonitorRunResult) {
         logger.info(
-            "Monitor run-once completed: status={} message={} discovered={} seeded={} baselined={} new={} updated={} skipped={} failed={} summarized={} summaryFailed={} approvals={} digestSent={} digestNoChange={} digestSkippedDuplicate={} digestFailed={} errors={} digestErrors={}",
+            "Monitor run-once completed: status={} message={} discovered={} seeded={} baselined={} new={} updated={} skipped={} failed={} summarized={} summaryFailed={} approvals={} digestSent={} digestNoChange={} digestSkippedDuplicate={} digestSkippedAccess={} digestFailed={} errors={} digestErrors={}",
             result.status,
             result.message,
             result.discoveredCount,
@@ -45,6 +45,7 @@ class DefaultMonitorRunOnceCommand(
             result.digestSentCount,
             result.digestNoChangeCount,
             result.digestSkippedDuplicateCount,
+            result.digestSkippedAccessCount,
             result.digestFailedCount,
             result.sampleErrors,
             result.sampleDigestErrors,

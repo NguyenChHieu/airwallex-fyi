@@ -26,6 +26,8 @@ Production-style digest bot for public Airwallex Blog and Newsroom updates. It d
 
 Users interact with Airwallex FYI through Telegram after the bot webhook is connected: [@AirwallexFYIBot](https://t.me/AirwallexFYIBot).
 
+Anyone can use the bot once it is reachable on Telegram unless `TELEGRAM_ALLOWED_CHAT_IDS` is configured. Each allowed chat that sends `/start` is stored as a subscriber, and future digests are fanned out from the central database.
+
 | Command | Purpose |
 | --- | --- |
 | `/start` | Subscribe this chat to daily Airwallex FYI digests. |
@@ -33,7 +35,19 @@ Users interact with Airwallex FYI through Telegram after the bot webhook is conn
 | `/latest` | Show the latest summarized updates already stored in the database. |
 | `/status` | Check subscription state, latest digest, latest update seen, and runtime mode. |
 
-Daily digests are sent automatically when the scheduled worker finds new public Airwallex updates. The bot's public Telegram name, avatar, description, and command menu are managed in BotFather; setup details live in [Setup and deployment](docs/SETUP.md).
+Daily digests are sent automatically when the scheduled worker finds new public Airwallex updates.
+
+## Telegram Profile
+
+| Field | Value |
+| --- | --- |
+| Name | `airwallex-fyi` |
+| Username | [`@AirwallexFYIBot`](https://t.me/AirwallexFYIBot) |
+| About | `Daily AI summaries for public Airwallex Blog and Newsroom updates.` |
+| Description | `Airwallex FYI monitors public Airwallex Blog and Newsroom updates, summarizes new posts, and sends concise daily Telegram digests with source links.` |
+| Avatar | [`docs/assets/airwallex-fyi.png`](docs/assets/airwallex-fyi.png) |
+
+BotFather owns the public Telegram profile and command menu. Runtime setup, webhook configuration, and secrets stay in [Setup and deployment](docs/SETUP.md).
 
 ## Production Snapshot
 

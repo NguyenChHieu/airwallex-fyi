@@ -42,6 +42,7 @@ data class AppProperties(
         val botToken: String = "",
         val chatId: String = "",
         val webhookSecret: String = "",
+        val allowedChatIds: String = "",
     )
 
     data class Digest(
