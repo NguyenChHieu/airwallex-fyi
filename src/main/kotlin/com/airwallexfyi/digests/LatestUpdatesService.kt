@@ -27,8 +27,8 @@ class LatestUpdatesService(
                     ?.let { post -> DigestEligibleSummary(post = post, summary = summary) }
             }
             .sortedWith(
-                compareByDescending<DigestEligibleSummary> { it.summary.createdAt }
-                    .thenByDescending { it.post.publishedAt ?: it.post.discoveredAt }
+                compareByDescending<DigestEligibleSummary> { it.post.publishedAt ?: it.post.discoveredAt }
+                    .thenByDescending { it.summary.createdAt }
                     .thenBy { it.post.url },
             )
             .take(limit.coerceIn(1, MAX_LIMIT))
