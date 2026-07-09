@@ -56,6 +56,7 @@ class TelegramSubscriptionService(
         return counters.toResult()
     }
 
+    @Synchronized
     fun processWebhookUpdate(update: TelegramUpdate, now: Instant = Instant.now()): TelegramSubscriptionSyncResult {
         if (properties.dryRun || properties.telegram.botToken.isBlank()) {
             return TelegramSubscriptionSyncResult(skipped = true)

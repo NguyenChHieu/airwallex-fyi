@@ -22,6 +22,9 @@ import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -146,6 +149,42 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         assertThat(transport.sentBodies).containsExactly("You're subscribed to Airwallex FYI. Send /stop anytime to unsubscribe.")
         assertThat(transport.offsets).containsExactly(201)
         assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("200")
+    }
+
+    @Test
+    fun `concurrent webhook retry for same update sends latest only once`() {
+        createSummarizedPost(
+            slug = "latest-once",
+            headline = "Latest Airwallex update",
+            now = Instant.parse("2026-06-27T00:00:00Z"),
+        )
+        val transport = FakeTelegramTransport(sendDelayMillis = 150)
+        val service = service(transport)
+        val update = update(208, "/latest", 123456789, username = "henry")
+        val executor = Executors.newFixedThreadPool(2)
+        val ready = CountDownLatch(2)
+        val start = CountDownLatch(1)
+
+        val first = executor.submit<TelegramSubscriptionSyncResult> {
+            ready.countDown()
+            start.await(1, TimeUnit.SECONDS)
+            service.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
+        }
+        val second = executor.submit<TelegramSubscriptionSyncResult> {
+            ready.countDown()
+            start.await(1, TimeUnit.SECONDS)
+            service.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
+        }
+
+        assertThat(ready.await(1, TimeUnit.SECONDS)).isTrue()
+        start.countDown()
+        val results = listOf(first.get(2, TimeUnit.SECONDS), second.get(2, TimeUnit.SECONDS))
+        executor.shutdownNow()
+
+        assertThat(results.sumOf { it.processedCount }).isEqualTo(1)
+        assertThat(transport.sentBodies).hasSize(1)
+        assertThat(transport.sentBodies.single()).contains("Airwallex FYI - latest updates")
+        assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("208")
     }
 
     @Test
@@ -446,11 +485,15 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     private class FakeTelegramTransport(
         private val updates: List<TelegramUpdate> = emptyList(),
         private val failure: RuntimeException? = null,
+        private val sendDelayMillis: Long = 0,
     ) : TelegramTransport {
         val offsets = mutableListOf<Long?>()
         val sentBodies = mutableListOf<String>()
 
         override fun sendMessage(botToken: String, chatId: String, body: String): TelegramSendResponse {
+            if (sendDelayMillis > 0) {
+                Thread.sleep(sendDelayMillis)
+            }
             sentBodies += body
             return TelegramSendResponse("message-${sentBodies.size}")
         }
