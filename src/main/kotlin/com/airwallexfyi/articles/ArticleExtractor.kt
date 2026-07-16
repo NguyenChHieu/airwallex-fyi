@@ -110,6 +110,8 @@ class ArticleExtractor(
     }
 
     private fun rejectUnavailableArticleShell(document: Document, entry: SitemapEntry) {
+        rejectIndexRedirectText(document, entry)
+
         val canonical = document.selectFirst("link[rel=canonical]")?.absUrl("href")?.cleanText()
             ?: document.selectFirst("meta[property=og:url]")?.attr("content")?.cleanText()
             ?: return
@@ -123,6 +125,16 @@ class ArticleExtractor(
         }
         if (canonicalPath == indexPath) {
             throw ArticleUnavailableException(entry.url, "canonical points to source index: $canonical")
+        }
+    }
+
+    private fun rejectIndexRedirectText(document: Document, entry: SitemapEntry) {
+        val indexPath = when (entry.sourceType) {
+            SourceType.BLOG -> "/global/blog"
+            SourceType.NEWSROOM -> "/global/newsroom"
+        }
+        if (document.text().contains("Redirecting to $indexPath", ignoreCase = true)) {
+            throw ArticleUnavailableException(entry.url, "redirects to source index: $indexPath")
         }
     }
 

@@ -139,6 +139,16 @@ class ArticleExtractorTest {
     }
 
     @Test
+    fun `treats raw redirects to source index as unavailable`() {
+        val url = "https://www.airwallex.com/global/blog/stale-redirect"
+        val html = "Moved Permanently. Redirecting to /global/blog"
+
+        assertThatThrownBy { extractor(html).extract(entry(url, SourceType.BLOG)) }
+            .isInstanceOf(ArticleUnavailableException::class.java)
+            .hasMessageContaining("redirects to source index")
+    }
+
+    @Test
     fun `content hash ignores media metadata`() {
         val entry = entry("https://www.airwallex.com/global/blog/hash-media", SourceType.BLOG)
         val original = extractor(fixture("/fixtures/airwallex/blog-agentos.html")).extract(entry)
