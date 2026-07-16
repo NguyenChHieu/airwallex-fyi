@@ -12,7 +12,7 @@ class RuntimeSafetyValidator(
     private val environment: Environment,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {
-        if (properties.dryRun || environment.acceptsProfiles(Profiles.of("test"))) return
+        if (properties.dryRun || args.containsOption(RUN_ONCE_OPTION) || environment.acceptsProfiles(Profiles.of("test"))) return
 
         require(properties.admin.token.isNotBlank() && properties.admin.token != DEFAULT_DEV_ADMIN_TOKEN) {
             "ADMIN_TOKEN must be set to a non-default value when DRY_RUN=false"
@@ -20,6 +20,7 @@ class RuntimeSafetyValidator(
     }
 
     private companion object {
+        const val RUN_ONCE_OPTION = "run-once"
         const val DEFAULT_DEV_ADMIN_TOKEN = "dev-admin-token"
     }
 }

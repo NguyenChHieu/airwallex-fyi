@@ -30,6 +30,16 @@ class RuntimeSafetyValidatorTest {
     }
 
     @Test
+    fun `allows run once worker without admin token`() {
+        val validator = RuntimeSafetyValidator(
+            AppProperties(dryRun = false),
+            MockEnvironment(),
+        )
+
+        assertThatCode { validator.run(DefaultApplicationArguments("--run-once")) }.doesNotThrowAnyException()
+    }
+
+    @Test
     fun `skips guard in test profile`() {
         val validator = RuntimeSafetyValidator(
             AppProperties(dryRun = false),
