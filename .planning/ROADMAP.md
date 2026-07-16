@@ -111,6 +111,28 @@ Plans:
 - Importance scoring and user-controlled filters.
 - Dashboard and historical Q&A over summaries.
 
+### Phase 5: Telegram Spotlight on-demand discovery
+
+**Goal:** Let an allowed Telegram user discover one useful recent Airwallex post on demand, reusing centralized summaries and generating a missing summary only when necessary.
+**Mode:** mvp
+
+**Requirements**: SPOT-01, SPOT-02
+**Depends on:** Phase 4
+
+**Success Criteria**:
+
+1. `/spotlight` selects one post at random from a bounded pool of the 25 most recently published Blog/Newsroom posts.
+2. Existing canonical summaries are reused without calling Gemini.
+3. A selected post with no summary is hydrated from its public URL when necessary, summarized once, and persisted centrally.
+4. Historical seed/baseline summaries created by Spotlight remain excluded from scheduled new-update digests.
+5. Telegram receives a readable headline, source type, bullets, why-it-matters section, and direct article link, with a useful fallback on extraction or AI failure.
+6. Existing `/start`, `/stop`, `/help`, `/latest`, `/status`, digest dedupe, and allowlist behavior continue to pass regression tests.
+
+**Plans:** 1 plan
+
+Plans:
+
+- [x] 05-01 Telegram Spotlight Vertical Slice (Wave 1)
+
 ---
 *Roadmap created: 2026-06-20*
-

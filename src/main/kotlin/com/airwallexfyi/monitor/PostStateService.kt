@@ -68,6 +68,16 @@ class PostStateService(
         PostWorkMode.UPDATE_CHECK -> updateKnownArticle(workItem, article)
     }
 
+    fun markArticleUnavailable(workItem: PostWorkItem): PostApplyResult = when (workItem.mode) {
+        PostWorkMode.UPDATE_CHECK -> {
+            refreshSitemapLastmod(workItem.entry.url, workItem.entry.sitemapLastmod)
+            PostApplyResult(PostApplyKind.SKIPPED, workItem.entry.url, postRepository.findByUrl(workItem.entry.url))
+        }
+        PostWorkMode.SEED,
+        PostWorkMode.NEW,
+        PostWorkMode.BASELINE -> baselineArticle(workItem)
+    }
+
     fun updateProcessingStatus(postId: UUID, status: ProcessingStatus): PostRecord? {
         val params = MapSqlParameterSource()
             .addValue("id", postId)
@@ -78,6 +88,37 @@ class PostStateService(
             """
             UPDATE posts
                SET processing_status = :processingStatus,
+                   updated_at = :updatedAt
+             WHERE id = :id
+            """.trimIndent(),
+            params,
+        )
+
+        return postRepository.findById(postId).orElse(null)
+    }
+
+    fun hydrateExistingArticle(postId: UUID, article: ExtractedArticle): PostRecord? {
+        val params = MapSqlParameterSource()
+            .addValue("id", postId)
+            .addValue("sourceType", article.sourceType.name)
+            .addValue("title", article.title)
+            .addValue("description", article.description)
+            .addValue("author", article.author)
+            .addValue("publishedAt", article.publishedAt?.let(Timestamp::from), Types.TIMESTAMP)
+            .addValue("contentHash", article.contentHash)
+            .addValue("articleBody", article.bodyText)
+            .addValue("updatedAt", Timestamp.from(Instant.now()))
+
+        jdbcTemplate.update(
+            """
+            UPDATE posts
+               SET source_type = :sourceType,
+                   title = :title,
+                   description = :description,
+                   author = :author,
+                   published_at = :publishedAt,
+                   content_hash = :contentHash,
+                   article_body = :articleBody,
                    updated_at = :updatedAt
              WHERE id = :id
             """.trimIndent(),

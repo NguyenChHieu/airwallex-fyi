@@ -17,6 +17,7 @@ import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
 import com.airwallexfyi.posts.SourceType
 import com.airwallexfyi.state.AppStateRepository
+import com.airwallexfyi.spotlights.SpotlightService
 import com.airwallexfyi.summaries.StructuredSummary
 import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
@@ -51,6 +52,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     private val appStateRepository: AppStateRepository,
     private val jdbcTemplate: JdbcTemplate,
     private val objectMapper: ObjectMapper,
+    private val spotlightService: SpotlightService,
 ) {
     @BeforeEach
     fun clearData() {
@@ -246,6 +248,68 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `spotlight replies immediately with one stored summary without subscribing`() {
+        val post = createSummarizedPost(
+            slug = "spotlight-update",
+            headline = "Spotlight Airwallex update",
+            now = Instant.parse("2026-06-27T00:00:00Z"),
+        )
+        val transport = FakeTelegramTransport(
+            updates = listOf(update(209, "/spotlight", 123456789, username = "henry")),
+        )
+        val service = service(transport)
+
+        val result = service.syncSubscriptions(Instant.parse("2026-06-28T00:00:00Z"))
+
+        assertThat(result.processedCount).isEqualTo(1)
+        assertThat(result.subscribedCount).isZero()
+        assertThat(subscriberChannelRepository.count()).isZero()
+        assertThat(transport.sentBodies).hasSize(2)
+        assertThat(transport.sentBodies.first()).contains("Finding an Airwallex update")
+        assertThat(transport.sentBodies.last()).contains("Airwallex FYI Spotlight")
+        assertThat(transport.sentBodies.last()).contains("Spotlight Airwallex update")
+        assertThat(transport.sentBodies.last()).contains("Read: ${post.url}")
+        assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("209")
+    }
+
+    @Test
+    fun `concurrent webhook retry for spotlight sends one response pair`() {
+        createSummarizedPost(
+            slug = "spotlight-once",
+            headline = "One Spotlight update",
+            now = Instant.parse("2026-06-27T00:00:00Z"),
+        )
+        val transport = FakeTelegramTransport(sendDelayMillis = 100)
+        val service = service(transport)
+        val update = update(210, "/spotlight", 123456789, username = "henry")
+        val executor = Executors.newFixedThreadPool(2)
+        val ready = CountDownLatch(2)
+        val start = CountDownLatch(1)
+
+        val first = executor.submit<TelegramSubscriptionSyncResult> {
+            ready.countDown()
+            start.await(1, TimeUnit.SECONDS)
+            service.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
+        }
+        val second = executor.submit<TelegramSubscriptionSyncResult> {
+            ready.countDown()
+            start.await(1, TimeUnit.SECONDS)
+            service.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
+        }
+
+        assertThat(ready.await(1, TimeUnit.SECONDS)).isTrue()
+        start.countDown()
+        val results = listOf(first.get(3, TimeUnit.SECONDS), second.get(3, TimeUnit.SECONDS))
+        executor.shutdownNow()
+
+        assertThat(results.sumOf { it.processedCount }).isEqualTo(1)
+        assertThat(transport.sentBodies).hasSize(2)
+        assertThat(transport.sentBodies.first()).contains("Finding an Airwallex update")
+        assertThat(transport.sentBodies.last()).contains("One Spotlight update")
+        assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("210")
+    }
+
+    @Test
     fun `allowlist rejects unknown telegram chat without subscribing`() {
         val transport = FakeTelegramTransport(
             updates = listOf(update(206, "/start", 123456789, username = "henry")),
@@ -402,6 +466,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
             digestDeliveryRepository = digestDeliveryRepository,
             postRepository = postRepository,
         ),
+        spotlightService = spotlightService,
     )
 
     private fun createTelegramChannel(recipient: String, status: String, now: Instant): SubscriberChannelRecord {

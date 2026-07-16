@@ -117,7 +117,31 @@ class GeminiSummaryClientTest {
             .hasMessageNotContaining("test-key")
     }
 
-    private fun client(transport: CapturingGeminiTransport): GeminiSummaryClient = GeminiSummaryClient(
+    @Test
+    fun `transient provider errors are retried before failing summary generation`() {
+        val transport = FlakyGeminiTransport(
+            failuresBeforeSuccess = 1,
+            response = geminiResponse(
+                """
+                {
+                  "headline": "Airwallex adds payment coverage",
+                  "bullets": ["The post explains a new payment method.", "Merchants get more checkout coverage.", "The update links back to the source."],
+                  "why_it_matters": "It shows Airwallex expanding payment coverage for merchants.",
+                  "tags": ["payments"],
+                  "source_type": "BLOG"
+                }
+                """.trimIndent(),
+            ),
+        )
+        val client = client(transport)
+
+        val summary = client.summarize(article())
+
+        assertThat(summary.headline).isEqualTo("Airwallex adds payment coverage")
+        assertThat(transport.calls).isEqualTo(2)
+    }
+
+    private fun client(transport: GeminiTransport): GeminiSummaryClient = GeminiSummaryClient(
         properties = AppProperties(
             ai = AppProperties.Ai(provider = "gemini", model = "gemini-test"),
             gemini = AppProperties.Gemini(apiKey = "test-key"),
@@ -166,6 +190,21 @@ class GeminiSummaryClientTest {
             this.apiKey = apiKey
             this.requestBody = requestBody
             failure?.let { throw it }
+            return response
+        }
+    }
+
+    private class FlakyGeminiTransport(
+        private val failuresBeforeSuccess: Int,
+        private val response: String,
+    ) : GeminiTransport {
+        var calls = 0
+
+        override fun generateContent(model: String, apiKey: String, requestBody: Map<String, Any>): String {
+            calls += 1
+            if (calls <= failuresBeforeSuccess) {
+                throw SummaryGenerationException("Gemini request failed: 503 Service Unavailable: high demand")
+            }
             return response
         }
     }

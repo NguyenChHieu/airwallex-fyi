@@ -20,8 +20,13 @@ enum class ExtractionSource {
     HTML_FALLBACK,
 }
 
-class ArticleExtractionException(
+open class ArticleExtractionException(
     val articleUrl: String,
     reason: String,
     cause: Throwable? = null,
 ) : RuntimeException("Failed to extract article $articleUrl: $reason", cause)
+
+class ArticleUnavailableException(
+    articleUrl: String,
+    reason: String,
+) : ArticleExtractionException(articleUrl, reason)

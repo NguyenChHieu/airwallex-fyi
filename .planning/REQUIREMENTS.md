@@ -47,6 +47,11 @@
 
 - [x] **QUAL-01**: Automated tests cover sitemap filtering, article extraction, first-run seed behavior, dedupe, dry-run notification, and new-post notification flow.
 
+### On-Demand Discovery
+
+- [ ] **SPOT-01**: An allowed Telegram user can request one random post from a bounded recent Blog/Newsroom pool and receive its structured summary with a direct source link.
+- [ ] **SPOT-02**: Missing Spotlight summaries are generated and persisted centrally without making historical seed/baseline posts eligible for the scheduled new-update digest.
+
 ## v2 Requirements
 
 ### Notifications
@@ -104,6 +109,8 @@
 | DIGEST-02 | Phase 03.1 | Pending |
 | OPS-03 | Phase 4 | Complete |
 | QUAL-01 | Phase 4 | Complete |
+| SPOT-01 | Phase 5 | Pending |
+| SPOT-02 | Phase 5 | Pending |
 | NOTIF-03 | Future | Pending |
 | NOTIF-04 | Future | Pending |
 | NOTIF-05 | Future | Pending |
@@ -115,12 +122,12 @@
 
 **Coverage:**
 
-- v1 requirements: 21 total
+- v1 requirements: 23 total
 - v2 backlog requirements: 8 total
-- Mapped to phases: 21
+- Mapped to phases: 23
 - Future backlog: 8
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-20*
-*Last updated: 2026-06-22 after Phase 03.1 discussion*
+*Last updated: 2026-07-14 for Phase 5 Telegram Spotlight*

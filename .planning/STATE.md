@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 4 complete
-last_updated: "2026-06-29T13:31:49Z"
+status: Phase 5 awaiting live verification
+last_updated: "2026-07-14T07:13:00Z"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
-  total_plans: 18
+  total_plans: 19
   completed_plans: 18
   percent: 100
 ---
@@ -19,17 +19,17 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-06-21)
 
 **Core value:** The service reliably tells subscribed recipients when Airwallex publishes a new public update, with a short useful summary and a direct source link.
-**Current focus:** Phase 4 completed - Scheduling, Verification, And Deployment Readiness
+**Current focus:** Phase 5 implemented locally - Telegram Spotlight live verification pending
 
 ## Workflow State
 
 - Project initialized: 2026-06-20
-- Current Phase: 4
-- Current Phase Name: Scheduling, Verification, And Deployment Readiness
-- Current Plan: Phase complete
-- Last Activity: 2026-06-29T13:31:49Z
-- Last Activity Description: Quick task 260629-wic completed: add telegram /latest command
-- Current status: Phase 4 complete - 3/3 plans complete
+- Current Phase: 5
+- Current Phase Name: Telegram Spotlight on-demand discovery
+- Current Plan: 05-01 executed; live UAT pending
+- Last Activity: 2026-07-14T07:13:00Z
+- Last Activity Description: Implemented `/spotlight`; 143 automated tests passed
+- Current status: Phase 5 executed - 1/1 plans complete, live Telegram UAT pending
 - Planning mode: vertical MVP
 - GSD config: `.planning/config.json`
 
@@ -42,6 +42,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-21)
 | 3 | Summaries And WhatsApp Alerts | Complete - 4 plans executed |
 | 03.1 | Subscriber Fanout And Daily Digests | Complete - 4 plans executed |
 | 4 | Scheduling, Verification, And Deployment Readiness | Complete - 3 plans executed |
+| 5 | Telegram Spotlight on-demand discovery | Executed - 1/1 plans; live UAT pending |
 
 ## Quick Tasks Completed
 
@@ -51,7 +52,13 @@ See: `.planning/PROJECT.md` (updated 2026-06-21)
 
 ## Next Step
 
-Start considering the next product feature now that Telegram subscribe, daily digest, webhook, and `/latest` are working.
+Deploy the Phase 5 revision, send `/spotlight` to the Telegram bot, and confirm the acknowledgement plus final Spotlight response.
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 5 added: Telegram Spotlight on-demand discovery
 
 ## Performance Metrics
 

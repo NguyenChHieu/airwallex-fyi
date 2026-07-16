@@ -18,13 +18,26 @@ class GeminiSummaryClient(
             throw SummaryGenerationException("Unsupported AI provider configured: ${properties.ai.provider}")
         }
 
-        val responseBody = transport.generateContent(
+        val responseBody = generateContentWithRetry(
             model = properties.ai.model,
             apiKey = properties.gemini.apiKey,
             requestBody = requestBodyFor(article),
         )
         val summaryJson = firstCandidateText(responseBody)
         return parseStructuredSummary(summaryJson)
+    }
+
+    private fun generateContentWithRetry(model: String, apiKey: String, requestBody: Map<String, Any>): String {
+        var lastFailure: SummaryGenerationException? = null
+        repeat(TRANSIENT_FAILURE_ATTEMPTS) { attempt ->
+            try {
+                return transport.generateContent(model, apiKey, requestBody)
+            } catch (ex: SummaryGenerationException) {
+                if (!ex.isTransientProviderFailure() || attempt == TRANSIENT_FAILURE_ATTEMPTS - 1) throw ex
+                lastFailure = ex
+            }
+        }
+        throw requireNotNull(lastFailure)
     }
 
     private fun requestBodyFor(article: ExtractedArticle): Map<String, Any> = mapOf(
@@ -141,5 +154,15 @@ class GeminiSummaryClient(
 
     private companion object {
         const val MAX_PROMPT_BODY_CHARS = 12000
+        const val TRANSIENT_FAILURE_ATTEMPTS = 3
     }
+}
+
+private fun SummaryGenerationException.isTransientProviderFailure(): Boolean {
+    val text = (message ?: "").lowercase()
+    return "503" in text ||
+        "429" in text ||
+        "high demand" in text ||
+        "rate limit" in text ||
+        "unavailable" in text
 }

@@ -7,6 +7,7 @@ import com.airwallexfyi.notifications.TelegramChat
 import com.airwallexfyi.notifications.TelegramTransport
 import com.airwallexfyi.notifications.TelegramUpdate
 import com.airwallexfyi.state.AppStateRepository
+import com.airwallexfyi.spotlights.SpotlightService
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -20,6 +21,7 @@ class TelegramSubscriptionService(
     private val subscriberChannelRepository: SubscriberChannelRepository,
     private val latestUpdatesService: LatestUpdatesService,
     private val telegramStatusService: TelegramStatusService,
+    private val spotlightService: SpotlightService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -113,7 +115,7 @@ class TelegramSubscriptionService(
             }
             TelegramCommand.HELP -> sendConfirmation(
                 chat.id.toString(),
-                "Airwallex FYI commands: /start subscribes, /stop unsubscribes, /latest shows recent updates, /status checks bot state.",
+                "Airwallex FYI commands: /start subscribes, /stop unsubscribes, /latest shows recent updates, /spotlight discovers one recent post, /status checks bot state.",
                 counters,
             )
             TelegramCommand.LATEST -> sendConfirmation(
@@ -126,6 +128,14 @@ class TelegramSubscriptionService(
                 telegramStatusService.formatStatus(chat.id.toString()),
                 counters,
             )
+            TelegramCommand.SPOTLIGHT -> {
+                sendConfirmation(chat.id.toString(), "Finding an Airwallex update for you...", counters)
+                sendConfirmation(
+                    chat.id.toString(),
+                    spotlightService.formatSpotlight(maxBodyChars = MessageBodyLimits.TELEGRAM),
+                    counters,
+                )
+            }
         }
     }
 
@@ -200,6 +210,7 @@ class TelegramSubscriptionService(
             "/help" -> TelegramCommand.HELP
             "/latest" -> TelegramCommand.LATEST
             "/status" -> TelegramCommand.STATUS
+            "/spotlight" -> TelegramCommand.SPOTLIGHT
             else -> null
         }
     }
@@ -249,6 +260,7 @@ class TelegramSubscriptionService(
         HELP,
         LATEST,
         STATUS,
+        SPOTLIGHT,
     }
 
     private companion object {

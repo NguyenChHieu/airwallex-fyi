@@ -1,6 +1,7 @@
 package com.airwallexfyi.monitor
 
 import com.airwallexfyi.articles.ArticleExtractor
+import com.airwallexfyi.articles.ArticleUnavailableException
 import com.airwallexfyi.articles.ExtractedArticle
 import com.airwallexfyi.digests.DailyDigestRunResult
 import com.airwallexfyi.digests.DailyDigestService
@@ -95,6 +96,9 @@ class MonitorRunService(
                     PostApplyKind.SEEDED,
                     PostApplyKind.BASELINED -> Unit
                 }
+            } catch (ex: ArticleUnavailableException) {
+                logger.info("Monitor skipped unavailable article url={} reason={}", workItem.entry.url, ex.shortReason())
+                accumulator.record(postStateService.markArticleUnavailable(workItem))
             } catch (ex: RuntimeException) {
                 accumulator.recordFailure(workItem.entry.url, ex.shortReason())
             }

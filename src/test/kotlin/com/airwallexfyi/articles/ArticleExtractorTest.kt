@@ -118,6 +118,27 @@ class ArticleExtractorTest {
     }
 
     @Test
+    fun `treats article urls canonicalized to source index as unavailable`() {
+        val html = """
+            <!doctype html>
+            <html>
+              <head>
+                <link rel="canonical" href="https://www.airwallex.com/global/blog">
+                <title>Business Blog &amp; Latest News | Airwallex</title>
+              </head>
+              <body>
+                <main>This is the generic Airwallex blog index, not an article body.</main>
+              </body>
+            </html>
+        """.trimIndent()
+        val url = "https://www.airwallex.com/global/blog/stale-post"
+
+        assertThatThrownBy { extractor(html).extract(entry(url, SourceType.BLOG)) }
+            .isInstanceOf(ArticleUnavailableException::class.java)
+            .hasMessageContaining("canonical points to source index")
+    }
+
+    @Test
     fun `content hash ignores media metadata`() {
         val entry = entry("https://www.airwallex.com/global/blog/hash-media", SourceType.BLOG)
         val original = extractor(fixture("/fixtures/airwallex/blog-agentos.html")).extract(entry)

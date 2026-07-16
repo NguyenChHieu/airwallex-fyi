@@ -38,6 +38,7 @@ import com.airwallexfyi.subscribers.SubscriberStatus
 import com.airwallexfyi.subscribers.TelegramStatusService
 import com.airwallexfyi.subscribers.TelegramSubscriptionService
 import com.airwallexfyi.state.AppStateRepository
+import com.airwallexfyi.spotlights.SpotlightService
 import com.airwallexfyi.summaries.AiSummaryClient
 import com.airwallexfyi.summaries.ArticleSummaryService
 import com.airwallexfyi.summaries.SummaryGenerationException
@@ -422,6 +423,31 @@ class MonitorRunServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `unavailable known article is skipped after sitemap lastmod changes`() {
+        val url = blogUrl("stale-redirected-post")
+        val originalLastmod = Instant.parse("2026-06-20T00:00:00Z")
+        val bumpedLastmod = Instant.parse("2026-06-21T00:00:00Z")
+        saveKnownPost(url, sitemapLastmod = originalLastmod)
+        val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
+        val service = monitorService(
+            sitemapXml = sitemap(listOf(url), lastmod = bumpedLastmod),
+            articleBodies = mapOf(url to blogIndexHtml()),
+            notifier = notifier,
+        )
+
+        val result = service.runOnce()
+
+        assertThat(result.status).isEqualTo(MonitorRunStatus.COMPLETED)
+        assertThat(result.updatedCount).isZero()
+        assertThat(result.skippedCount).isEqualTo(1)
+        assertThat(result.failedCount).isZero()
+        assertThat(result.sampleErrors).isEmpty()
+        assertThat(result.digestNoChangeCount).isEqualTo(1)
+        assertThat(postRepository.findByUrl(url)?.sitemapLastmod).isEqualTo(bumpedLastmod)
+        assertThat(notifier.calls).isEqualTo(1)
+    }
+
+    @Test
     fun `sitemap discovery failure writes no posts and does not run digest`() {
         val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
         val service = monitorService(
@@ -457,12 +483,14 @@ class MonitorRunServiceTest @Autowired constructor(
         sourceDiscoveryService: AirwallexSourceDiscoveryService = AirwallexSourceDiscoveryService(properties, StaticHttpClient(sitemapXml)),
     ): MonitorRunService {
         val eligibilityService = DigestEligibilityService(summaryRepository, postRepository)
+        val extractor = articleExtractor(articleBodies)
+        val summaryService = summaryService(aiClient, properties)
         return MonitorRunService(
             sourceDiscoveryService = sourceDiscoveryService,
-            articleExtractor = articleExtractor(articleBodies),
+            articleExtractor = extractor,
             postStateService = postStateService,
             summaryRepository = summaryRepository,
-            articleSummaryService = summaryService(aiClient, properties),
+            articleSummaryService = summaryService,
             subscriberSeedService = SubscriberSeedService(properties, subscriberRepository, subscriberChannelRepository),
             telegramSubscriptionService = TelegramSubscriptionService(
                 properties = properties,
@@ -476,6 +504,14 @@ class MonitorRunServiceTest @Autowired constructor(
                     subscriberChannelRepository = subscriberChannelRepository,
                     digestDeliveryRepository = digestDeliveryRepository,
                     postRepository = postRepository,
+                ),
+                spotlightService = SpotlightService(
+                    postRepository = postRepository,
+                    summaryRepository = summaryRepository,
+                    articleExtractor = extractor,
+                    articleSummaryService = summaryService,
+                    postStateService = postStateService,
+                    objectMapper = objectMapper,
                 ),
             ),
             dailyDigestService = DailyDigestService(
@@ -571,6 +607,19 @@ class MonitorRunServiceTest @Autowired constructor(
     )
 
     private fun blogUrl(slug: String): String = "https://www.airwallex.com/global/blog/$slug"
+
+    private fun blogIndexHtml(): String = """
+        <!doctype html>
+        <html>
+          <head>
+            <link rel="canonical" href="https://www.airwallex.com/global/blog">
+            <title>Business Blog &amp; Latest News | Airwallex</title>
+          </head>
+          <body>
+            <main>This is the generic Airwallex blog index rather than the requested article.</main>
+          </body>
+        </html>
+    """.trimIndent()
 
     private fun fixture(path: String): String =
         requireNotNull(javaClass.getResource(path)) { "Missing fixture $path" }.readText()

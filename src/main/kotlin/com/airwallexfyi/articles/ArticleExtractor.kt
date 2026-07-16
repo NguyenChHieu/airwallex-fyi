@@ -3,6 +3,7 @@ package com.airwallexfyi.articles
 import com.airwallexfyi.posts.SourceType
 import com.airwallexfyi.sources.AirwallexHttpClient
 import com.airwallexfyi.sources.SitemapEntry
+import java.net.URI
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -31,6 +32,8 @@ class ArticleExtractor(
         val document = Jsoup.parse(html, entry.url)
         val structured = runCatching { extractStructured(document, entry) }.getOrNull()
         if (structured != null) return structured
+
+        rejectUnavailableArticleShell(document, entry)
 
         return runCatching { extractFallback(document, entry) }
             .getOrElse { ex ->
@@ -103,6 +106,23 @@ class ArticleExtractor(
         return when (sourceType) {
             SourceType.BLOG -> pageData.path("post").path("fields")
             SourceType.NEWSROOM -> pageData.path("pr").path("fields")
+        }
+    }
+
+    private fun rejectUnavailableArticleShell(document: Document, entry: SitemapEntry) {
+        val canonical = document.selectFirst("link[rel=canonical]")?.absUrl("href")?.cleanText()
+            ?: document.selectFirst("meta[property=og:url]")?.attr("content")?.cleanText()
+            ?: return
+        val canonicalPath = runCatching { URI(canonical).path.trimEnd('/') }.getOrNull() ?: return
+        val requestedPath = runCatching { URI(entry.url).path.trimEnd('/') }.getOrNull() ?: return
+        if (canonicalPath == requestedPath) return
+
+        val indexPath = when (entry.sourceType) {
+            SourceType.BLOG -> "/global/blog"
+            SourceType.NEWSROOM -> "/global/newsroom"
+        }
+        if (canonicalPath == indexPath) {
+            throw ArticleUnavailableException(entry.url, "canonical points to source index: $canonical")
         }
     }
 
