@@ -1,6 +1,7 @@
 package com.airwallexfyi.spotlights
 
 import com.airwallexfyi.articles.ArticleExtractor
+import com.airwallexfyi.articles.ArticleUnavailableException
 import com.airwallexfyi.articles.ExtractedArticle
 import com.airwallexfyi.articles.ExtractionSource
 import com.airwallexfyi.monitor.PostStateService
@@ -32,12 +33,21 @@ class SpotlightService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun formatSpotlight(maxBodyChars: Int = MessageBodyLimits.TELEGRAM): String {
-        val post = recentCandidates().randomOrNull() ?: return NO_POSTS_TEXT
-        return runCatching { buildSpotlight(post, maxBodyChars) }
-            .getOrElse { error ->
+        val candidates = recentCandidates().shuffled()
+        if (candidates.isEmpty()) return NO_POSTS_TEXT
+
+        for (post in candidates) {
+            try {
+                return buildSpotlight(post, maxBodyChars)
+            } catch (error: ArticleUnavailableException) {
+                logger.info("Spotlight skipped unavailable article url={}: {}", post.url, error.boundedReason())
+            } catch (error: RuntimeException) {
                 logger.warn("Spotlight failed for url={}: {}", post.url, error.boundedReason())
-                failureMessage(post)
+                return failureMessage(post)
             }
+        }
+
+        return NO_POSTS_TEXT
     }
 
     private fun recentCandidates(): List<PostRecord> = postRepository.findAll()

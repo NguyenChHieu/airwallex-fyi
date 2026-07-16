@@ -147,6 +147,19 @@ class SpotlightServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `does not return a stale unavailable article link`() {
+        val post = postRepository.save(post(status = ProcessingStatus.BASELINED, body = null, title = null))
+        fakeHttpClient.response = "Moved Permanently. Redirecting to /global/blog"
+
+        val message = service.formatSpotlight()
+
+        assertThat(message).isEqualTo(SpotlightService.NO_POSTS_TEXT)
+        assertThat(message).doesNotContain(post.url)
+        assertThat(fakeHttpClient.requestedUrls).containsExactly(post.url)
+        assertThat(fakeAiClient.calls).isZero()
+    }
+
+    @Test
     fun `keeps spotlight response under the requested message cap`() {
         val post = postRepository.save(post(status = ProcessingStatus.SUMMARY_READY, body = "Stored article body with enough detail for a useful summary."))
         summaryRepository.save(
