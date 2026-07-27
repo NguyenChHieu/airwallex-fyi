@@ -17,6 +17,7 @@ class TelegramSubscriptionService(
     private val properties: AppProperties,
     private val telegramTransport: TelegramTransport,
     private val appStateRepository: AppStateRepository,
+    private val telegramUpdateReceiptRepository: TelegramUpdateReceiptRepository,
     private val subscriberRepository: SubscriberRepository,
     private val subscriberChannelRepository: SubscriberChannelRepository,
     private val latestUpdatesService: LatestUpdatesService,
@@ -47,13 +48,21 @@ class TelegramSubscriptionService(
 
         val counters = TelegramSubscriptionCounters()
         updates.sortedBy { it.updateId }.forEach { update ->
+            counters.lastUpdateId = maxOf(counters.lastUpdateId ?: Long.MIN_VALUE, update.updateId)
+            if (!telegramUpdateReceiptRepository.tryClaim(update.updateId, now)) {
+                return@forEach
+            }
             counters.processedCount += 1
-            counters.lastUpdateId = update.updateId
-            processUpdate(update, now, counters)
+            try {
+                processUpdate(update, now, counters)
+            } catch (ex: RuntimeException) {
+                telegramUpdateReceiptRepository.release(update.updateId)
+                throw ex
+            }
         }
 
         counters.lastUpdateId?.let { lastUpdateId ->
-            appStateRepository.putValue(STATE_KEY_LAST_UPDATE_ID, lastUpdateId.toString(), now)
+            advanceCursor(lastUpdateId, now)
         }
         return counters.toResult()
     }
@@ -64,16 +73,20 @@ class TelegramSubscriptionService(
             return TelegramSubscriptionSyncResult(skipped = true)
         }
 
-        val lastUpdateId = lastUpdateId()
-        if (lastUpdateId != null && update.updateId <= lastUpdateId) {
+        if (!telegramUpdateReceiptRepository.tryClaim(update.updateId, now)) {
             return TelegramSubscriptionSyncResult()
         }
 
         val counters = TelegramSubscriptionCounters()
         counters.processedCount += 1
         counters.lastUpdateId = update.updateId
-        processUpdate(update, now, counters)
-        appStateRepository.putValue(STATE_KEY_LAST_UPDATE_ID, update.updateId.toString(), now)
+        try {
+            processUpdate(update, now, counters)
+        } catch (ex: RuntimeException) {
+            telegramUpdateReceiptRepository.release(update.updateId)
+            throw ex
+        }
+        advanceCursor(update.updateId, now)
         return counters.toResult()
     }
 
@@ -82,7 +95,17 @@ class TelegramSubscriptionService(
             ?.plus(1)
 
     private fun lastUpdateId(): Long? =
-        appStateRepository.findValue(STATE_KEY_LAST_UPDATE_ID)?.toLongOrNull()
+        listOfNotNull(
+            appStateRepository.findValue(STATE_KEY_LAST_UPDATE_ID)?.toLongOrNull(),
+            telegramUpdateReceiptRepository.findLatestUpdateId(),
+        ).maxOrNull()
+
+    private fun advanceCursor(updateId: Long, now: Instant) {
+        val current = appStateRepository.findValue(STATE_KEY_LAST_UPDATE_ID)?.toLongOrNull()
+        if (current == null || updateId > current) {
+            appStateRepository.putValue(STATE_KEY_LAST_UPDATE_ID, updateId.toString(), now)
+        }
+    }
 
     private fun processUpdate(update: TelegramUpdate, now: Instant, counters: TelegramSubscriptionCounters) {
         val message = update.message ?: return

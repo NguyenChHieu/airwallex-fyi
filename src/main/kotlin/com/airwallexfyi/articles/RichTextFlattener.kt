@@ -18,9 +18,9 @@ class RichTextFlattener {
     }
 
     private fun appendNode(node: JsonNode, builder: StringBuilder) {
-        val nodeType = node.get("nodeType")?.asText()
+        val nodeType = node.get("nodeType")?.asString()
         if (nodeType == "text") {
-            appendInlineText(builder, node.get("value")?.asText().orEmpty())
+            appendInlineText(builder, node.get("value")?.asString().orEmpty())
             return
         }
 

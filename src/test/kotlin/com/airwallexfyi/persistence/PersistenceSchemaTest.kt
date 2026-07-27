@@ -221,6 +221,25 @@ class PersistenceSchemaTest @Autowired constructor(
     }
 
     @Test
+    fun `telegram update receipts enforce idempotent update claims`() {
+        val receivedAt = Instant.parse("2026-07-26T00:00:00Z")
+        jdbcTemplate.update(
+            "INSERT INTO telegram_update_receipts (update_id, received_at) VALUES (?, ?)",
+            9001L,
+            receivedAt,
+        )
+
+        assertThat(columnsFor("telegram_update_receipts")).containsExactlyInAnyOrder("update_id", "received_at")
+        assertThatThrownBy {
+            jdbcTemplate.update(
+                "INSERT INTO telegram_update_receipts (update_id, received_at) VALUES (?, ?)",
+                9001L,
+                receivedAt.plusSeconds(1),
+            )
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
+    }
+
+    @Test
     fun `digest schema rejects duplicate daily deliveries and duplicate post links`() {
         val subscriberId = insertSubscriber("Digest Subscriber")
         val channelId = insertSubscriberChannel(subscriberId, "whatsapp:+1777${System.nanoTime()}")

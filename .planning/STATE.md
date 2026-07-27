@@ -49,6 +49,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-21)
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260629-wic | add telegram /latest command | 2026-06-29 | 5da36bc | [260629-wic-add-telegram-latest-command](./quick/260629-wic-add-telegram-latest-command/) |
+| 260726-hardening | reliability and security hardening | 2026-07-26 | uncommitted | [260726-reliability-security-hardening](./quick/260726-reliability-security-hardening/) |
 
 ## Next Step
 

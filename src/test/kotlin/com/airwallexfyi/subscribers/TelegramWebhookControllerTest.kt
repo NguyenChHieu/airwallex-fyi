@@ -45,6 +45,7 @@ class TelegramWebhookControllerTest @Autowired constructor(
     fun clearData() {
         subscriberChannelRepository.deleteAll()
         subscriberRepository.deleteAll()
+        jdbcTemplate.update("DELETE FROM telegram_update_receipts")
         jdbcTemplate.update("DELETE FROM app_state")
         telegramTransport.sentBodies.clear()
     }

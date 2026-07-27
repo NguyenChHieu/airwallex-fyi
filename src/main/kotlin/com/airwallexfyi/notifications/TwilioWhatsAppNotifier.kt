@@ -106,7 +106,7 @@ class RestClientTwilioTransport(
             throw IllegalStateException("Twilio request failed: ${ex.safeMessage()}", ex)
         }
 
-        val sid = objectMapper.readTree(responseBody).path("sid").asText(null).orEmpty()
+        val sid = objectMapper.readTree(responseBody).path("sid").asString(null).orEmpty()
         if (sid.isBlank()) {
             throw IllegalStateException("Twilio response did not include a message SID")
         }

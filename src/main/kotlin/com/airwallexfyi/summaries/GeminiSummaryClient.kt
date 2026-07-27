@@ -35,9 +35,20 @@ class GeminiSummaryClient(
             } catch (ex: SummaryGenerationException) {
                 if (!ex.isTransientProviderFailure() || attempt == TRANSIENT_FAILURE_ATTEMPTS - 1) throw ex
                 lastFailure = ex
+                waitBeforeRetry(attempt)
             }
         }
         throw requireNotNull(lastFailure)
+    }
+
+    private fun waitBeforeRetry(attempt: Int) {
+        val delayMillis = TRANSIENT_RETRY_BASE_DELAY_MILLIS * (1L shl attempt)
+        try {
+            Thread.sleep(delayMillis)
+        } catch (ex: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw SummaryGenerationException("Gemini retry interrupted", ex)
+        }
     }
 
     private fun requestBodyFor(article: ExtractedArticle): Map<String, Any> = mapOf(
@@ -103,7 +114,7 @@ class GeminiSummaryClient(
             ?.path("parts")
             ?.get(0)
             ?.path("text")
-            ?.asText()
+            ?.asString()
             ?.trim()
             .orEmpty()
 
@@ -131,7 +142,7 @@ class GeminiSummaryClient(
     }
 
     private fun requiredText(root: JsonNode, field: String): String {
-        val text = root.path(field).asText(null)?.trim().orEmpty()
+        val text = root.path(field).asString(null)?.trim().orEmpty()
         if (text.isBlank()) {
             throw SummaryGenerationException("Gemini summary missing required field: $field")
         }
@@ -143,7 +154,7 @@ class GeminiSummaryClient(
         if (!node.isArray) {
             throw SummaryGenerationException("Gemini summary field must be an array: $field")
         }
-        return (0 until node.size()).map { index -> node.get(index).asText(null).orEmpty() }
+        return (0 until node.size()).map { index -> node.get(index).asString(null).orEmpty() }
     }
 
     private fun requiredSourceType(root: JsonNode, field: String): SourceType = try {
@@ -155,6 +166,7 @@ class GeminiSummaryClient(
     private companion object {
         const val MAX_PROMPT_BODY_CHARS = 12000
         const val TRANSIENT_FAILURE_ATTEMPTS = 3
+        const val TRANSIENT_RETRY_BASE_DELAY_MILLIS = 250L
     }
 }
 

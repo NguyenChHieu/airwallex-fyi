@@ -61,6 +61,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         subscriberRepository.deleteAll()
         summaryRepository.deleteAll()
         postRepository.deleteAll()
+        jdbcTemplate.update("DELETE FROM telegram_update_receipts")
         jdbcTemplate.update("DELETE FROM app_state")
     }
 
@@ -161,7 +162,8 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
             now = Instant.parse("2026-06-27T00:00:00Z"),
         )
         val transport = FakeTelegramTransport(sendDelayMillis = 150)
-        val service = service(transport)
+        val firstService = service(transport)
+        val secondService = service(transport)
         val update = update(208, "/latest", 123456789, username = "henry")
         val executor = Executors.newFixedThreadPool(2)
         val ready = CountDownLatch(2)
@@ -170,12 +172,12 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         val first = executor.submit<TelegramSubscriptionSyncResult> {
             ready.countDown()
             start.await(1, TimeUnit.SECONDS)
-            service.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
+            firstService.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
         }
         val second = executor.submit<TelegramSubscriptionSyncResult> {
             ready.countDown()
             start.await(1, TimeUnit.SECONDS)
-            service.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
+            secondService.processWebhookUpdate(update, Instant.parse("2026-06-28T00:00:00Z"))
         }
 
         assertThat(ready.await(1, TimeUnit.SECONDS)).isTrue()
@@ -187,6 +189,21 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         assertThat(transport.sentBodies).hasSize(1)
         assertThat(transport.sentBodies.single()).contains("Airwallex FYI - latest updates")
         assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("208")
+    }
+
+    @Test
+    fun `out of order webhook updates are both processed without regressing cursor`() {
+        val transport = FakeTelegramTransport()
+        val service = service(transport)
+        val now = Instant.parse("2026-06-28T00:00:00Z")
+
+        val newer = service.processWebhookUpdate(update(302, "/help", 123456789), now)
+        val older = service.processWebhookUpdate(update(301, "/help", 123456789), now.plusSeconds(1))
+
+        assertThat(newer.processedCount).isEqualTo(1)
+        assertThat(older.processedCount).isEqualTo(1)
+        assertThat(transport.sentBodies).hasSize(2)
+        assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("302")
     }
 
     @Test
@@ -457,6 +474,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         properties = properties,
         telegramTransport = transport,
         appStateRepository = appStateRepository,
+        telegramUpdateReceiptRepository = TelegramUpdateReceiptRepository(jdbcTemplate),
         subscriberRepository = subscriberRepository,
         subscriberChannelRepository = subscriberChannelRepository,
         latestUpdatesService = LatestUpdatesService(summaryRepository, postRepository, objectMapper),

@@ -142,7 +142,7 @@ class ArticleExtractor(
         optionalText(node, field)?.takeIf { it.isNotBlank() }
 
     private fun optionalText(node: JsonNode, field: String): String? =
-        node.get(field)?.asText()?.cleanText()
+        node.get(field)?.asString()?.cleanText()
 
     private fun parseDate(value: String?): Instant? {
         val date = value?.trim().orEmpty()

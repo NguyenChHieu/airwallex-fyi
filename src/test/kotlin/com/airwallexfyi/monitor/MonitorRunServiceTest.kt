@@ -37,6 +37,7 @@ import com.airwallexfyi.subscribers.SubscriberSeedService
 import com.airwallexfyi.subscribers.SubscriberStatus
 import com.airwallexfyi.subscribers.TelegramStatusService
 import com.airwallexfyi.subscribers.TelegramSubscriptionService
+import com.airwallexfyi.subscribers.TelegramUpdateReceiptRepository
 import com.airwallexfyi.state.AppStateRepository
 import com.airwallexfyi.spotlights.SpotlightService
 import com.airwallexfyi.summaries.AiSummaryClient
@@ -496,6 +497,7 @@ class MonitorRunServiceTest @Autowired constructor(
                 properties = properties,
                 telegramTransport = FakeTelegramTransport(),
                 appStateRepository = AppStateRepository(plainJdbcTemplate),
+                telegramUpdateReceiptRepository = TelegramUpdateReceiptRepository(plainJdbcTemplate),
                 subscriberRepository = subscriberRepository,
                 subscriberChannelRepository = subscriberChannelRepository,
                 latestUpdatesService = LatestUpdatesService(summaryRepository, postRepository, objectMapper),
