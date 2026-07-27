@@ -11,31 +11,28 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL%20%2F%20Supabase-production-3FCF8E?logo=supabase&logoColor=white)
 ![Telegram](https://img.shields.io/badge/Telegram-bot-26A5E4?logo=telegram&logoColor=white)
 
-Production-style digest bot for public Airwallex Blog and Newsroom updates. It discovers new posts, stores canonical state in PostgreSQL, summarizes updates with Gemini, and sends concise Telegram digests to subscribers.
+Telegram digest bot for public Airwallex Blog and Newsroom updates. It tracks new posts, stores canonical state in PostgreSQL, summarizes with Gemini, and sends concise subscriber digests.
 
 ## What It Does
 
-- Monitors public Airwallex Blog and Newsroom sitemap entries.
-- Extracts article content and detects new or changed updates.
-- Generates structured summaries with Gemini.
-- Sends daily Telegram digests with source links.
+- Monitors public Airwallex Blog and Newsroom pages.
+- Detects new or changed posts.
+- Summarizes updates with Gemini.
+- Sends Telegram digests with source links.
 - Supports `/start`, `/stop`, `/latest`, and `/status`.
-- Keeps optional Twilio WhatsApp delivery available.
 
 ## Using the Bot
 
-Users interact with Airwallex FYI through Telegram after the bot webhook is connected: [@AirwallexFYIBot](https://t.me/AirwallexFYIBot).
-
-Anyone can use the bot once it is reachable on Telegram unless `TELEGRAM_ALLOWED_CHAT_IDS` is configured. Each allowed chat that sends `/start` is stored as a subscriber, and future digests are fanned out from the central database.
+Open [@AirwallexFYIBot](https://t.me/AirwallexFYIBot) on Telegram and send `/start`. If `TELEGRAM_ALLOWED_CHAT_IDS` is set, only allowed chats can subscribe.
 
 | Command | Purpose |
 | --- | --- |
 | `/start` | Subscribe this chat to daily Airwallex FYI digests. |
 | `/stop` | Unsubscribe this chat. |
-| `/latest` | Show the latest summarized updates already stored in the database. |
-| `/status` | Check subscription state, latest digest, latest update seen, and runtime mode. |
+| `/latest` | Show latest stored summaries. |
+| `/status` | Check bot/subscription state. |
 
-Daily digests are sent automatically when the scheduled worker finds new public Airwallex updates.
+Daily digests are fanned out from the central database when the scheduled worker finds new public updates.
 
 ## Telegram Profile
 
@@ -44,10 +41,10 @@ Daily digests are sent automatically when the scheduled worker finds new public 
 | Name | `airwallex-fyi` |
 | Username | [`@AirwallexFYIBot`](https://t.me/AirwallexFYIBot) |
 | About | `Daily AI summaries for public Airwallex Blog and Newsroom updates.` |
-| Description | `Airwallex FYI monitors public Airwallex Blog and Newsroom updates, summarizes new posts, and sends concise daily Telegram digests with source links.` |
+| Description | `Monitors public Airwallex Blog and Newsroom updates, summarizes new posts, and sends concise Telegram digests with source links.` |
 | Avatar | [`docs/assets/airwallex-fyi.png`](docs/assets/airwallex-fyi.png) |
 
-BotFather owns the public Telegram profile and command menu. Runtime setup, webhook configuration, and secrets stay in [Setup and deployment](docs/SETUP.md).
+BotFather owns the public profile and command menu. Runtime setup lives in [Setup and deployment](docs/SETUP.md).
 
 ## Production Snapshot
 
@@ -78,7 +75,7 @@ Gemini summaries
 Telegram daily digest
 ```
 
-Render hosts the webhook/admin service. GitHub Actions runs the scheduled `--run-once` worker around 9am Australia/Sydney.
+Render hosts webhooks/admin endpoints. GitHub Actions runs `--run-once` around 9am Australia/Sydney.
 
 ## Commands
 
