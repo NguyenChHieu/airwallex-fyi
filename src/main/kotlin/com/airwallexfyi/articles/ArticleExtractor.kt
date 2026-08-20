@@ -3,11 +3,8 @@ package com.airwallexfyi.articles
 import com.airwallexfyi.posts.SourceType
 import com.airwallexfyi.sources.AirwallexHttpClient
 import com.airwallexfyi.sources.SitemapEntry
+import com.airwallexfyi.util.FlexibleInstantParser
 import java.net.URI
-import java.time.Instant
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.springframework.stereotype.Service
@@ -60,7 +57,7 @@ class ArticleExtractor(
             title = title,
             description = description,
             author = optionalText(fields, "author"),
-            publishedAt = parseDate(optionalText(fields, "date")),
+            publishedAt = FlexibleInstantParser.parse(optionalText(fields, "date")),
             bodyText = body,
             contentHash = contentHashService.hash(title, description, body),
             extractionSource = ExtractionSource.STRUCTURED,
@@ -131,16 +128,6 @@ class ArticleExtractor(
 
     private fun optionalText(node: JsonNode, field: String): String? =
         node.get(field)?.asString()?.cleanText()
-
-    private fun parseDate(value: String?): Instant? {
-        val date = value?.trim().orEmpty()
-        if (date.isBlank()) return null
-
-        return runCatching { Instant.parse(date) }.getOrNull()
-            ?: runCatching { OffsetDateTime.parse(date).toInstant() }.getOrNull()
-            ?: runCatching { LocalDate.parse(date).atStartOfDay().toInstant(ZoneOffset.UTC) }.getOrNull()
-    }
-
 
     private fun String?.cleanText(): String? =
         this?.trim()?.replace(WHITESPACE, " ")?.takeIf { it.isNotBlank() }
