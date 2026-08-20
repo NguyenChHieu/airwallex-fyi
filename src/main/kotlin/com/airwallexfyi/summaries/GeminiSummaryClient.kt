@@ -28,17 +28,19 @@ class GeminiSummaryClient(
     }
 
     private fun generateContentWithRetry(model: String, apiKey: String, requestBody: Map<String, Any>): String {
-        var lastFailure: SummaryGenerationException? = null
-        repeat(TRANSIENT_FAILURE_ATTEMPTS) { attempt ->
+        // while(true) with no break has type Nothing, so every path out of this loop
+        // is a return or a throw - the compiler can see the function never falls
+        // through, unlike a repeat(...) block, which needed a dead trailing throw.
+        var attempt = 0
+        while (true) {
             try {
                 return transport.generateContent(model, apiKey, requestBody)
             } catch (ex: SummaryGenerationException) {
                 if (!ex.isTransientProviderFailure() || attempt == TRANSIENT_FAILURE_ATTEMPTS - 1) throw ex
-                lastFailure = ex
                 waitBeforeRetry(attempt)
+                attempt += 1
             }
         }
-        throw requireNotNull(lastFailure)
     }
 
     private fun waitBeforeRetry(attempt: Int) {
