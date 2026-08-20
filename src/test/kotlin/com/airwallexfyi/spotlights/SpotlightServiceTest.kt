@@ -148,8 +148,21 @@ class SpotlightServiceTest @Autowired constructor(
 
     @Test
     fun `does not return a stale unavailable article link`() {
+        // Simulates the http client having already followed a redirect (the real client
+        // now does this via RestClientTimeouts) and landing on the blog index page.
         val post = postRepository.save(post(status = ProcessingStatus.BASELINED, body = null, title = null))
-        fakeHttpClient.response = "Moved Permanently. Redirecting to /global/blog"
+        fakeHttpClient.response = """
+            <!doctype html>
+            <html>
+              <head>
+                <link rel="canonical" href="https://www.airwallex.com/global/blog">
+                <title>Business Blog &amp; Latest News | Airwallex</title>
+              </head>
+              <body>
+                <main>This is the generic Airwallex blog index, not an article body.</main>
+              </body>
+            </html>
+        """.trimIndent()
 
         val message = service.formatSpotlight()
 

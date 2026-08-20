@@ -129,10 +129,22 @@ class MonitorRunService(
     }
 
     private fun runDailyDigest(accumulator: MonitorRunAccumulator) {
+        // Each step is isolated: a failure in subscriber seeding or Telegram subscription
+        // sync must not prevent the daily digest itself from being sent to everyone else.
         try {
             subscriberSeedService.seedDefaultSubscriberIfConfigured()
+        } catch (ex: RuntimeException) {
+            accumulator.recordDigestFailure("Subscriber seeding failed: ${ex.shortReason()}")
+        }
+
+        try {
             logger.info("Telegram subscription sync started.")
             accumulator.recordTelegramSubscriptionResult(telegramSubscriptionService.syncSubscriptions())
+        } catch (ex: RuntimeException) {
+            accumulator.recordDigestFailure("Telegram subscription sync failed: ${ex.shortReason()}")
+        }
+
+        try {
             logger.info("Daily digest send started.")
             accumulator.recordDigestResult(dailyDigestService.sendDailyDigests())
         } catch (ex: RuntimeException) {
@@ -141,7 +153,9 @@ class MonitorRunService(
     }
 
     private fun recordMissingSummaryApproval(post: PostRecord, accumulator: MonitorRunAccumulator) {
-        if (post.processingStatus in MISSING_SUMMARY_APPROVAL_SKIP_STATUSES) return
+        // Only a post still sitting at DISCOVERED (seen, but never successfully
+        // summarized) needs this check; every other status is already settled.
+        if (post.processingStatus != ProcessingStatus.DISCOVERED.name) return
 
         val alreadySummarized = summaryRepository.findByPostId(post.identifier()) != null
         if (alreadySummarized) return
@@ -168,6 +182,7 @@ private class MonitorRunAccumulator(
     private var digestSkippedAccessCount = 0
     private var digestFailedCount = 0
     private var twilioCallsTriggered = false
+    private var telegramCallsTriggered = false
     private val seededUrls = mutableListOf<String>()
     private val baselinedUrls = mutableListOf<String>()
     private val newUrls = mutableListOf<String>()
@@ -220,6 +235,7 @@ private class MonitorRunAccumulator(
         digestSkippedAccessCount += result.skippedAccessCount
         digestFailedCount += result.failedCount
         twilioCallsTriggered = twilioCallsTriggered || result.twilioCallsTriggered
+        telegramCallsTriggered = telegramCallsTriggered || result.telegramCallsTriggered
         result.samplePayloads.forEach { addPayload(it) }
         result.sampleDeliveries.forEach { digestDeliveries.addSample(it) }
         result.sampleErrors.forEach { digestErrors.addSample(it) }
@@ -227,6 +243,8 @@ private class MonitorRunAccumulator(
 
     fun recordTelegramSubscriptionResult(result: TelegramSubscriptionSyncResult) {
         if (result.skipped) return
+        // A non-skipped sync always makes at least one real Telegram getUpdates call.
+        telegramCallsTriggered = true
         if (result.processedCount > 0 || result.subscribedCount > 0 || result.unsubscribedCount > 0) {
             digestDeliveries.addSample(
                 "telegram subscriptions processed=${result.processedCount} subscribed=${result.subscribedCount} unsubscribed=${result.unsubscribedCount}",
@@ -297,7 +315,7 @@ private class MonitorRunAccumulator(
             sampleApprovalNeeded = approvalNeeded,
             sampleDigestDeliveries = digestDeliveries,
             sampleDigestErrors = digestErrors,
-            externalCallsTriggered = summarizedCount > 0 || twilioCallsTriggered,
+            externalCallsTriggered = summarizedCount > 0 || twilioCallsTriggered || telegramCallsTriggered,
             twilioCallsTriggered = twilioCallsTriggered,
             message = message,
         )
@@ -321,14 +339,4 @@ private fun Throwable.shortReason(): String =
 
 private const val SAMPLE_LIMIT = 5
 private const val PROGRESS_LOG_INTERVAL = 50
-private val MISSING_SUMMARY_APPROVAL_SKIP_STATUSES = setOf(
-    ProcessingStatus.SEEDED.name,
-    ProcessingStatus.BASELINED.name,
-    ProcessingStatus.SUMMARY_READY.name,
-    ProcessingStatus.ALERT_SENT.name,
-    ProcessingStatus.DRY_RUN_READY.name,
-    ProcessingStatus.SUMMARY_FAILED.name,
-    ProcessingStatus.ALERT_FAILED.name,
-    ProcessingStatus.APPROVAL_NEEDED.name,
-)
 

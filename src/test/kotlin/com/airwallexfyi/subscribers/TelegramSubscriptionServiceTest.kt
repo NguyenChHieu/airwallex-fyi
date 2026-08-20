@@ -21,12 +21,15 @@ import com.airwallexfyi.spotlights.SpotlightService
 import com.airwallexfyi.summaries.StructuredSummary
 import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -265,7 +268,7 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
     }
 
     @Test
-    fun `spotlight replies immediately with one stored summary without subscribing`() {
+    fun `spotlight acknowledges immediately then sends the summary asynchronously`() {
         val post = createSummarizedPost(
             slug = "spotlight-update",
             headline = "Spotlight Airwallex update",
@@ -281,8 +284,11 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         assertThat(result.processedCount).isEqualTo(1)
         assertThat(result.subscribedCount).isZero()
         assertThat(subscriberChannelRepository.count()).isZero()
-        assertThat(transport.sentBodies).hasSize(2)
+        // The immediate acknowledgment is sent synchronously and returned already;
+        // the actual spotlight content is dispatched on a background thread so it
+        // doesn't hold the webhook's @Synchronized lock - wait for it to land.
         assertThat(transport.sentBodies.first()).contains("Finding an Airwallex update")
+        await().atMost(Duration.ofSeconds(5)).until { transport.sentBodies.size >= 2 }
         assertThat(transport.sentBodies.last()).contains("Airwallex FYI Spotlight")
         assertThat(transport.sentBodies.last()).contains("Spotlight Airwallex update")
         assertThat(transport.sentBodies.last()).contains("Read: ${post.url}")
@@ -320,8 +326,9 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         executor.shutdownNow()
 
         assertThat(results.sumOf { it.processedCount }).isEqualTo(1)
-        assertThat(transport.sentBodies).hasSize(2)
         assertThat(transport.sentBodies.first()).contains("Finding an Airwallex update")
+        await().atMost(Duration.ofSeconds(5)).until { transport.sentBodies.size >= 2 }
+        assertThat(transport.sentBodies).hasSize(2)
         assertThat(transport.sentBodies.last()).contains("One Spotlight update")
         assertThat(appStateRepository.findValue("telegram.last_update_id")).isEqualTo("210")
     }
@@ -571,7 +578,9 @@ class TelegramSubscriptionServiceTest @Autowired constructor(
         private val sendDelayMillis: Long = 0,
     ) : TelegramTransport {
         val offsets = mutableListOf<Long?>()
-        val sentBodies = mutableListOf<String>()
+        // Spotlight replies now arrive from a background thread (see fix for the
+        // @Synchronized webhook lock), so this is written concurrently with test reads.
+        val sentBodies = CopyOnWriteArrayList<String>()
 
         override fun sendMessage(botToken: String, chatId: String, body: String): TelegramSendResponse {
             if (sendDelayMillis > 0) {

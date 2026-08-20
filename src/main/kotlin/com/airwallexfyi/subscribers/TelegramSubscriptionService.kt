@@ -9,6 +9,7 @@ import com.airwallexfyi.notifications.TelegramUpdate
 import com.airwallexfyi.state.AppStateRepository
 import com.airwallexfyi.spotlights.SpotlightService
 import java.time.Instant
+import kotlin.concurrent.thread
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -153,11 +154,7 @@ class TelegramSubscriptionService(
             )
             TelegramCommand.SPOTLIGHT -> {
                 sendConfirmation(chat.id.toString(), "Finding an Airwallex update for you...", counters)
-                sendConfirmation(
-                    chat.id.toString(),
-                    spotlightService.formatSpotlight(maxBodyChars = MessageBodyLimits.TELEGRAM),
-                    counters,
-                )
+                dispatchSpotlightAsync(chat.id.toString())
             }
         }
     }
@@ -218,6 +215,31 @@ class TelegramSubscriptionService(
         } catch (ex: RuntimeException) {
             counters.failedCount += 1
             counters.addError("Telegram confirmation failed for $chatId: ${ex.sanitizedReason()}")
+        }
+    }
+
+    // ponytail: fire-and-forget background thread so spotlight generation (article
+    // fetch + Gemini, up to ~165s) doesn't hold the @Synchronized webhook lock and
+    // block every other subscriber's /start or /stop while it runs. Failures are only
+    // logged, not retried or reflected back in this update's sync result - the caller
+    // has already received the "Finding an update..." acknowledgment by this point.
+    // Upgrade to a task executor if this needs backpressure or delivery confirmation.
+    private fun dispatchSpotlightAsync(chatId: String) {
+        thread(name = "telegram-spotlight-$chatId", isDaemon = true) {
+            val message = runCatching { spotlightService.formatSpotlight(maxBodyChars = MessageBodyLimits.TELEGRAM) }
+                .getOrElse { ex ->
+                    logger.warn("Spotlight generation failed for chat={}: {}", chatId, ex.sanitizedReason())
+                    "Airwallex FYI: something went wrong finding a spotlight update. Please try /spotlight again."
+                }
+            try {
+                telegramTransport.sendMessage(
+                    botToken = properties.telegram.botToken,
+                    chatId = chatId,
+                    body = message,
+                )
+            } catch (ex: RuntimeException) {
+                logger.warn("Spotlight confirmation send failed for chat={}: {}", chatId, ex.sanitizedReason())
+            }
         }
     }
 

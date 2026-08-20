@@ -11,6 +11,7 @@ import com.airwallexfyi.subscribers.SubscriberChannelRepository
 import com.airwallexfyi.subscribers.SubscriberChannelType
 import com.airwallexfyi.subscribers.SubscriberStatus
 import com.airwallexfyi.subscribers.TelegramChatAllowlist
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -72,7 +73,14 @@ class DailyDigestService(
         }
 
         val lastSuccessfulDelivery = digestDeliveryRepository.findMostRecentSuccessfulDelivery(subscriberChannel.identifier())
-        val since = lastSuccessfulDelivery?.sentAt ?: lastSuccessfulDelivery?.attemptedAt
+        // A channel with no prior successful delivery is brand new (or has never sent
+        // successfully): bound its first digest to a recent window instead of the
+        // entire summarized history - otherwise a fresh /start dumps every post ever
+        // summarized, which is exactly the historical-spam this project's "no
+        // historical spam" constraint rules out.
+        val since = lastSuccessfulDelivery?.sentAt
+            ?: lastSuccessfulDelivery?.attemptedAt
+            ?: now.minus(FIRST_DIGEST_LOOKBACK)
         val eligiblePosts = digestEligibilityService.findEligibleSummariesSince(since)
         val messageType = if (eligiblePosts.isEmpty()) DigestMessageType.NO_CHANGES else DigestMessageType.DIGEST
         val payload = if (eligiblePosts.isEmpty()) {
@@ -126,6 +134,7 @@ class DailyDigestService(
         }
 
         counters.twilioCallsTriggered = counters.twilioCallsTriggered || notificationResult.twilioCalled
+        counters.telegramCallsTriggered = counters.telegramCallsTriggered || notificationResult.telegramCalled
         counters.addPayloadSample(notificationResult.payloadPreview)
         counters.addDeliverySample("${subscriberChannel.recipient} $messageType $deliveryStatus")
         when {
@@ -187,6 +196,7 @@ class DailyDigestService(
         var skippedAccessCount: Int = 0
         var failedCount: Int = 0
         var twilioCallsTriggered: Boolean = false
+        var telegramCallsTriggered: Boolean = false
         private val deliverySamples = mutableListOf<String>()
         private val errorSamples = mutableListOf<String>()
         private val payloadSamples = mutableListOf<String>()
@@ -207,6 +217,7 @@ class DailyDigestService(
             sampleErrors = errorSamples.toList(),
             samplePayloads = payloadSamples.toList(),
             twilioCallsTriggered = twilioCallsTriggered,
+            telegramCallsTriggered = telegramCallsTriggered,
         )
     }
 
@@ -215,6 +226,7 @@ class DailyDigestService(
         const val SAMPLE_LIMIT = 5
         val SUPPORTED_CHANNELS = listOf(SubscriberChannelType.WHATSAPP, SubscriberChannelType.TELEGRAM)
         val NON_SENT_STATUSES = setOf(NotificationStatus.FAILED, NotificationStatus.SKIPPED)
+        val FIRST_DIGEST_LOOKBACK: Duration = Duration.ofHours(48)
 
         fun MutableList<String>.addBounded(value: String) {
             if (size < SAMPLE_LIMIT) {
@@ -234,4 +246,5 @@ data class DailyDigestRunResult(
     val sampleErrors: List<String> = emptyList(),
     val samplePayloads: List<String> = emptyList(),
     val twilioCallsTriggered: Boolean = false,
+    val telegramCallsTriggered: Boolean = false,
 )

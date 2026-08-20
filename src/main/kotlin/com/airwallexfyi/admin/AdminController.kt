@@ -20,6 +20,8 @@ import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
 import java.time.Instant
 import java.util.UUID
+import kotlin.concurrent.thread
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -39,6 +41,8 @@ class AdminController(
     private val articleSummaryService: ArticleSummaryService,
     private val monitorRunService: MonitorRunService,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     @GetMapping("/admin/health")
     fun health(): AdminHealthResponse = AdminHealthResponse(
         status = "ok",
@@ -87,7 +91,17 @@ class AdminController(
     }
 
     @PostMapping("/admin/run-once")
-    fun runOnce(): AdminRunOnceResponse = AdminRunOnceResponse.from(monitorRunService.runOnce())
+    fun runOnce(): AdminRunOnceAcceptedResponse {
+        // ponytail: fire-and-forget background thread, no retry/backpressure, and no
+        // guard against two overlapping runs if triggered twice in quick succession.
+        // Upgrade to a proper task executor or job queue if concurrent triggering or
+        // result-polling becomes a real need. Check /admin/status afterward for outcome.
+        thread(name = "admin-run-once", isDaemon = true) {
+            runCatching { monitorRunService.runOnce() }
+                .onFailure { logger.error("Admin-triggered run-once failed", it) }
+        }
+        return AdminRunOnceAcceptedResponse()
+    }
 
     @PostMapping("/admin/posts/{id}/summarize")
     fun summarizePost(@PathVariable id: UUID): AdminSummarizePostResponse {

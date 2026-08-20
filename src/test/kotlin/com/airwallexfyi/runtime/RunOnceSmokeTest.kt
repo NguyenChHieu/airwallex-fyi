@@ -111,7 +111,7 @@ class RunOnceSmokeTest @Autowired constructor(
         discoveredAt = Instant.parse("2026-06-16T00:00:00Z"),
         contentHash = "smoke-known-hash",
         articleBody = "Known article body that is long enough to count as stored content.",
-        processingStatus = ProcessingStatus.ALERT_SENT.name,
+        processingStatus = ProcessingStatus.SUMMARY_READY.name,
     )
 }
 

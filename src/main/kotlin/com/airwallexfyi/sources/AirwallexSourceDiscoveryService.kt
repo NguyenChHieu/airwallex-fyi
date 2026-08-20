@@ -2,11 +2,9 @@ package com.airwallexfyi.sources
 
 import com.airwallexfyi.config.AppProperties
 import com.airwallexfyi.posts.SourceType
+import com.airwallexfyi.util.FlexibleInstantParser
 import java.net.URI
 import java.time.Instant
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import org.springframework.stereotype.Service
@@ -28,7 +26,7 @@ class AirwallexSourceDiscoveryService(
                 SitemapEntry(
                     url = loc,
                     sourceType = sourceType,
-                    sitemapLastmod = parseLastmod(urlElement.selectFirst("lastmod")?.text()),
+                    sitemapLastmod = FlexibleInstantParser.parse(urlElement.selectFirst("lastmod")?.text()),
                     discoveredAt = discoveredAt,
                 )
             }
@@ -44,15 +42,6 @@ class AirwallexSourceDiscoveryService(
             NEWSROOM_PATH.matches(uri.path) -> SourceType.NEWSROOM
             else -> null
         }
-    }
-
-    private fun parseLastmod(value: String?): Instant? {
-        val trimmed = value?.trim().orEmpty()
-        if (trimmed.isBlank()) return null
-
-        return runCatching { Instant.parse(trimmed) }.getOrNull()
-            ?: runCatching { OffsetDateTime.parse(trimmed).toInstant() }.getOrNull()
-            ?: runCatching { LocalDate.parse(trimmed).atStartOfDay().toInstant(ZoneOffset.UTC) }.getOrNull()
     }
 
     private companion object {

@@ -42,6 +42,7 @@ class TelegramBotNotifier(
             payloadPreview = payload.preview,
             providerMessageId = response.messageId,
             twilioCalled = false,
+            telegramCalled = true,
         )
     } catch (ex: RuntimeException) {
         NotificationResult(
@@ -49,6 +50,7 @@ class TelegramBotNotifier(
             payloadPreview = payload.preview,
             errorMessage = ex.sanitizedReason(properties.telegram.botToken),
             twilioCalled = false,
+            telegramCalled = true,
         )
     }
 

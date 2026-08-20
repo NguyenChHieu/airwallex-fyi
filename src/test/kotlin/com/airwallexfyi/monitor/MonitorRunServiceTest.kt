@@ -51,6 +51,8 @@ import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.`when`
+import org.mockito.Mockito.mock
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
@@ -307,6 +309,28 @@ class MonitorRunServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `telegram subscription sync failure does not block the daily digest send`() {
+        saveKnownPost(blogUrl("known-before-sync-failure"))
+        val newUrl = blogUrl("sync-failure")
+        val notifier = FakeWhatsAppNotifier(NotificationStatus.DRY_RUN)
+        val failingSubscriptionService = mock(TelegramSubscriptionService::class.java)
+        `when`(failingSubscriptionService.syncSubscriptions()).thenThrow(IllegalStateException("telegram getUpdates blew up"))
+        val service = monitorService(
+            sitemapXml = sitemap(listOf(newUrl)),
+            articleBodies = mapOf(newUrl to fixture("/fixtures/airwallex/blog-agentos.html")),
+            notifier = notifier,
+            telegramSubscriptionService = failingSubscriptionService,
+        )
+
+        val result = service.runOnce()
+
+        assertThat(result.status).isEqualTo(MonitorRunStatus.PARTIAL_FAILURE)
+        assertThat(result.digestSentCount).isEqualTo(1)
+        assertThat(notifier.calls).isEqualTo(1)
+        assertThat(result.sampleDigestErrors).anyMatch { it.contains("Telegram subscription sync failed") }
+    }
+
+    @Test
     fun `multiple new posts become one combined digest message`() {
         saveKnownPost(blogUrl("known-before-multi"))
         val first = blogUrl("multi-one")
@@ -482,6 +506,7 @@ class MonitorRunServiceTest @Autowired constructor(
         telegramNotifier: FakeTelegramNotifier = FakeTelegramNotifier(),
         properties: AppProperties = testProperties(),
         sourceDiscoveryService: AirwallexSourceDiscoveryService = AirwallexSourceDiscoveryService(properties, StaticHttpClient(sitemapXml)),
+        telegramSubscriptionService: TelegramSubscriptionService? = null,
     ): MonitorRunService {
         val eligibilityService = DigestEligibilityService(summaryRepository, postRepository)
         val extractor = articleExtractor(articleBodies)
@@ -493,7 +518,7 @@ class MonitorRunServiceTest @Autowired constructor(
             summaryRepository = summaryRepository,
             articleSummaryService = summaryService,
             subscriberSeedService = SubscriberSeedService(properties, subscriberRepository, subscriberChannelRepository),
-            telegramSubscriptionService = TelegramSubscriptionService(
+            telegramSubscriptionService = telegramSubscriptionService ?: TelegramSubscriptionService(
                 properties = properties,
                 telegramTransport = FakeTelegramTransport(),
                 appStateRepository = AppStateRepository(plainJdbcTemplate),
@@ -559,7 +584,7 @@ class MonitorRunServiceTest @Autowired constructor(
             discoveredAt = sitemapLastmod,
             contentHash = contentHash,
             articleBody = "Known article body that is long enough for a stored post.",
-            processingStatus = ProcessingStatus.ALERT_SENT.name,
+            processingStatus = ProcessingStatus.SUMMARY_READY.name,
         ),
     )
 

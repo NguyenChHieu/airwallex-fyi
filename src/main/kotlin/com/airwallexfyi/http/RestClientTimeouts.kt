@@ -8,6 +8,7 @@ object RestClientTimeouts {
     fun requestFactory(readTimeout: Duration = DEFAULT_READ_TIMEOUT): JdkClientHttpRequestFactory {
         val httpClient = HttpClient.newBuilder()
             .connectTimeout(CONNECT_TIMEOUT)
+            .followRedirects(HttpClient.Redirect.NORMAL)
             .build()
         return JdkClientHttpRequestFactory(httpClient).apply {
             setReadTimeout(readTimeout)
