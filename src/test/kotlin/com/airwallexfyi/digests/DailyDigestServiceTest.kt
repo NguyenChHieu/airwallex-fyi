@@ -190,6 +190,41 @@ class DailyDigestServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `brand new subscriber does not receive the full summarized history on first digest`() {
+        // Summarized long before this channel's first-ever digest run - well outside
+        // the bounded lookback window a channel with no prior successful delivery gets.
+        createSummarizedPostAt(
+            "https://www.airwallex.com/global/blog/old-backlog-${System.nanoTime()}",
+            summarizedAt = Instant.parse("2026-06-01T00:00:00Z"),
+        )
+        createChannel("whatsapp:+15550003010")
+        val notifier = FakeWhatsAppNotifier()
+        val service = service(notifier)
+
+        val result = service.sendDailyDigests(Instant.parse("2026-06-22T02:00:00Z"))
+
+        assertThat(result.noChangeCount).isEqualTo(1)
+        assertThat(result.digestSentCount).isZero()
+        assertThat(notifier.payloads.single().body).isEqualTo(DailyDigestFormatter.NO_CHANGES_TEXT)
+    }
+
+    @Test
+    fun `brand new subscriber receives posts summarized within the recent lookback window`() {
+        createChannel("whatsapp:+15550003011")
+        val summarized = createSummarizedPostAt(
+            "https://www.airwallex.com/global/blog/recent-backlog-${System.nanoTime()}",
+            summarizedAt = Instant.parse("2026-06-21T12:00:00Z"),
+        )
+        val notifier = FakeWhatsAppNotifier()
+        val service = service(notifier)
+
+        val result = service.sendDailyDigests(Instant.parse("2026-06-22T02:00:00Z"))
+
+        assertThat(result.digestSentCount).isEqualTo(1)
+        assertThat(notifier.payloads.single().body).contains("Read: ${summarized.post.url}")
+    }
+
+    @Test
     fun `service timezone controls delivery local date`() {
         val channel = createChannel("whatsapp:+15550003005")
         val notifier = FakeWhatsAppNotifier()
@@ -286,8 +321,11 @@ class DailyDigestServiceTest @Autowired constructor(
         )
     }
 
-    private fun createSummarizedPost(url: String): SummarizedFixture {
-        val now = Instant.parse("2026-06-22T00:30:00Z")
+    private fun createSummarizedPost(url: String): SummarizedFixture =
+        createSummarizedPostAt(url, summarizedAt = Instant.parse("2026-06-22T00:31:00Z"))
+
+    private fun createSummarizedPostAt(url: String, summarizedAt: Instant): SummarizedFixture {
+        val now = summarizedAt.minusSeconds(60)
         val post = postRepository.save(
             PostRecord(
                 url = url,
