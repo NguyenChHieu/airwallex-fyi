@@ -3,15 +3,19 @@ package com.airwallexfyi.digests
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
+import com.airwallexfyi.summaries.StructuredSummary
 import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
+import com.airwallexfyi.summaries.toStructuredSummary
 import java.time.Instant
 import org.springframework.stereotype.Service
+import tools.jackson.databind.ObjectMapper
 
 @Service
 class DigestEligibilityService(
     private val summaryRepository: SummaryRepository,
     private val postRepository: PostRepository,
+    private val objectMapper: ObjectMapper,
 ) {
     fun findEligibleSummariesSince(since: Instant?): List<DigestEligibleSummary> {
         val postsById = postRepository.findAll().associateBy { it.identifier() }
@@ -20,7 +24,15 @@ class DigestEligibilityService(
             .filter { summary -> since == null || summary.createdAt.isAfter(since) }
             .mapNotNull { summary ->
                 postsById[summary.postId]
-                    ?.let { post -> DigestEligibleSummary(post = post, summary = summary) }
+                    ?.let { post ->
+                        DigestEligibleSummary(
+                            post = post,
+                            summary = summary,
+                            // Parsed once here instead of once per subscriber in the
+                            // formatter - the JSON is identical for every recipient.
+                            structured = summary.toStructuredSummary(objectMapper),
+                        )
+                    }
             }
             .filter { candidate -> candidate.post.processingStatus == ProcessingStatus.SUMMARY_READY.name }
             .sortedWith(
@@ -35,4 +47,5 @@ class DigestEligibilityService(
 data class DigestEligibleSummary(
     val post: PostRecord,
     val summary: SummaryRecord,
+    val structured: StructuredSummary,
 )

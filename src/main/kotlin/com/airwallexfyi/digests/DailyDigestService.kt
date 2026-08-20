@@ -38,19 +38,27 @@ class DailyDigestService(
             }
             .sortedBy { it.createdAt }
 
-        channels.forEach { subscriberChannel ->
-            sendForChannel(subscriberChannel, localDate, now, counters)
+        // Cheap per-channel checks (allowlist, already-sent-today) run first and skip
+        // anyone who won't actually receive a digest. Only channels that pass need
+        // eligible content, so the expensive read happens once for the whole run
+        // instead of once per channel.
+        val plans = channels.mapNotNull { subscriberChannel -> prepareChannel(subscriberChannel, localDate, now, counters) }
+
+        if (plans.isNotEmpty()) {
+            val floor = plans.minOf { it.since }
+            val eligiblePosts = digestEligibilityService.findEligibleSummariesSince(floor)
+            plans.forEach { plan -> sendForChannel(plan, eligiblePosts, localDate, now, counters) }
         }
 
         return counters.toResult()
     }
 
-    private fun sendForChannel(
+    private fun prepareChannel(
         subscriberChannel: SubscriberChannelRecord,
         localDate: LocalDate,
         now: Instant,
         counters: DailyDigestCounters,
-    ) {
+    ): ChannelSendPlan? {
         val existing = digestDeliveryRepository.findBySubscriberChannelIdAndLocalDate(
             subscriberChannel.identifier(),
             localDate,
@@ -58,13 +66,13 @@ class DailyDigestService(
         if (!subscriberChannel.isAllowedByCurrentConfig()) {
             counters.skippedAccessCount += 1
             counters.addDeliverySample("${subscriberChannel.recipient} ACCESS ${DigestDeliveryStatus.SKIPPED}")
-            return
+            return null
         }
         if (existing != null) {
             if (existing.status != DigestDeliveryStatus.FAILED) {
                 counters.skippedDuplicateCount += 1
                 counters.addDeliverySample("${subscriberChannel.recipient} ${existing.messageType} ${DigestDeliveryStatus.SKIPPED_DUPLICATE}")
-                return
+                return null
             }
             digestDeliveryPostRepository.deleteAll(
                 digestDeliveryPostRepository.findByDigestDeliveryIdOrderByDisplayOrderAsc(existing.identifier()),
@@ -81,7 +89,20 @@ class DailyDigestService(
         val since = lastSuccessfulDelivery?.sentAt
             ?: lastSuccessfulDelivery?.attemptedAt
             ?: now.minus(FIRST_DIGEST_LOOKBACK)
-        val eligiblePosts = digestEligibilityService.findEligibleSummariesSince(since)
+        return ChannelSendPlan(subscriberChannel, since)
+    }
+
+    private fun sendForChannel(
+        plan: ChannelSendPlan,
+        allEligiblePosts: List<DigestEligibleSummary>,
+        localDate: LocalDate,
+        now: Instant,
+        counters: DailyDigestCounters,
+    ) {
+        val subscriberChannel = plan.subscriberChannel
+        // allEligiblePosts is already sorted; filtering preserves that order, so no
+        // re-sort is needed for this channel's own (later-or-equal) watermark.
+        val eligiblePosts = allEligiblePosts.filter { it.summary.createdAt.isAfter(plan.since) }
         val messageType = if (eligiblePosts.isEmpty()) DigestMessageType.NO_CHANGES else DigestMessageType.DIGEST
         val payload = if (eligiblePosts.isEmpty()) {
             dailyDigestFormatter.formatNoChanges(subscriberChannel.recipient)
@@ -186,6 +207,11 @@ class DailyDigestService(
 
     private fun Throwable.sanitizedReason(): String =
         (message ?: javaClass.simpleName).lineSequence().firstOrNull()?.take(ERROR_LIMIT) ?: javaClass.simpleName
+
+    private data class ChannelSendPlan(
+        val subscriberChannel: SubscriberChannelRecord,
+        val since: Instant,
+    )
 
     private class DailyDigestCounters {
         var digestSentCount: Int = 0

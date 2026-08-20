@@ -266,7 +266,7 @@ class DigestDeliveryRepositoryTest @Autowired constructor(
                 postId = post.identifier(),
                 headline = "Headline for ${post.identifier()}",
                 summaryJson = """
-                {"headline":"Headline","bullets":["One useful point"],"why_it_matters":"It matters","tags":["payments"],"source_type":"BLOG"}
+                {"headline":"Headline","bullets":["First useful point","Second useful point","Third useful point"],"why_it_matters":"It matters","tags":["payments"],"source_type":"BLOG"}
                 """.trimIndent(),
                 whyItMatters = "It matters",
                 tagsJson = "[\"payments\"]",

@@ -24,7 +24,13 @@ class LatestUpdatesService(
             .mapNotNull { summary ->
                 postsById[summary.postId]
                     ?.takeIf { post -> post.processingStatus == ProcessingStatus.SUMMARY_READY.name }
-                    ?.let { post -> DigestEligibleSummary(post = post, summary = summary) }
+                    ?.let { post ->
+                        DigestEligibleSummary(
+                            post = post,
+                            summary = summary,
+                            structured = summary.toStructuredSummary(objectMapper),
+                        )
+                    }
             }
             .sortedWith(
                 compareByDescending<DigestEligibleSummary> { it.post.publishedAt ?: it.post.discoveredAt }
@@ -41,7 +47,7 @@ class LatestUpdatesService(
         return buildString {
             appendLine("Airwallex FYI - latest updates")
             items.forEachIndexed { index, item ->
-                val summary = item.summary.toStructuredSummary(objectMapper)
+                val summary = item.structured
                 val section = buildString {
                     appendLine()
                     appendLine("${index + 1}. ${summary.headline.cleanInline()}")

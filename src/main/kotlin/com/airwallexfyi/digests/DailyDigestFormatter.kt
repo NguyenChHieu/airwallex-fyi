@@ -3,15 +3,11 @@ package com.airwallexfyi.digests
 import com.airwallexfyi.notifications.WhatsAppAlertPayload
 import com.airwallexfyi.notifications.MessageBodyLimits
 import com.airwallexfyi.posts.ProcessingStatus
-import com.airwallexfyi.summaries.toStructuredSummary
 import java.time.LocalDate
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 @Component
-class DailyDigestFormatter(
-    private val objectMapper: ObjectMapper,
-) {
+class DailyDigestFormatter {
     fun formatDigest(items: List<DigestEligibleSummary>, recipient: String, localDate: LocalDate): WhatsAppAlertPayload {
         require(items.isNotEmpty()) { "digest requires at least one eligible post" }
         require(items.all { it.post.processingStatus == ProcessingStatus.SUMMARY_READY.name }) {
@@ -23,7 +19,7 @@ class DailyDigestFormatter(
             appendLine(localDate)
             appendLine("${items.size} Airwallex ${"update".pluralized(items.size)} worth noting.")
             items.forEachIndexed { index, item ->
-                val summary = item.summary.toStructuredSummary(objectMapper)
+                val summary = item.structured
                 val section = buildString {
                     appendLine()
                     appendLine("${index + 1}. ${summary.headline.cleanInline()}")
