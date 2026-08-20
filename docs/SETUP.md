@@ -30,6 +30,9 @@ Commands:
 - `/start` subscribes the chat.
 - `/stop` unsubscribes the chat.
 - `/latest` replies with the latest summarized updates already stored in the database.
+- `/status` checks bot/subscription state.
+- `/spotlight` discovers and summarizes one recent post on demand.
+- `/help` lists available commands.
 
 ## Telegram Webhook
 

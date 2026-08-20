@@ -19,7 +19,7 @@ Telegram digest bot for public Airwallex Blog and Newsroom updates. It tracks ne
 - Detects new or changed posts.
 - Summarizes updates with Gemini.
 - Sends Telegram digests with source links.
-- Supports `/start`, `/stop`, `/latest`, and `/status`.
+- Supports `/start`, `/stop`, `/latest`, `/status`, `/spotlight`, and `/help`.
 
 ## Using the Bot
 
@@ -31,6 +31,8 @@ Open [@AirwallexFYIBot](https://t.me/AirwallexFYIBot) on Telegram and send `/sta
 | `/stop` | Unsubscribe this chat. |
 | `/latest` | Show latest stored summaries. |
 | `/status` | Check bot/subscription state. |
+| `/spotlight` | Discover and summarize one recent post on demand. |
+| `/help` | List available commands. |
 
 Daily digests are fanned out from the central database when the scheduled worker finds new public updates.
 
@@ -50,11 +52,11 @@ BotFather owns the public profile and command menu. Runtime setup lives in [Setu
 
 | Area | Current |
 | --- | --- |
-| Production Kotlin files | 58 |
-| Test classes | 29 |
-| JUnit tests | 127 |
-| Flyway migrations | 6 |
-| Source/resource size | ~7.7k nonblank lines |
+| Production Kotlin files | 64 |
+| Test classes | 32 |
+| JUnit tests | 158 |
+| Flyway migrations | 9 |
+| Source/resource size | ~8.9k nonblank lines |
 | Runtime stack | Render + Supabase + GitHub Actions + Telegram |
 
 ## Architecture
