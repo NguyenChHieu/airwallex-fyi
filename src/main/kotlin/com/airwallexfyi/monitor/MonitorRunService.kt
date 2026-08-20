@@ -129,10 +129,22 @@ class MonitorRunService(
     }
 
     private fun runDailyDigest(accumulator: MonitorRunAccumulator) {
+        // Each step is isolated: a failure in subscriber seeding or Telegram subscription
+        // sync must not prevent the daily digest itself from being sent to everyone else.
         try {
             subscriberSeedService.seedDefaultSubscriberIfConfigured()
+        } catch (ex: RuntimeException) {
+            accumulator.recordDigestFailure("Subscriber seeding failed: ${ex.shortReason()}")
+        }
+
+        try {
             logger.info("Telegram subscription sync started.")
             accumulator.recordTelegramSubscriptionResult(telegramSubscriptionService.syncSubscriptions())
+        } catch (ex: RuntimeException) {
+            accumulator.recordDigestFailure("Telegram subscription sync failed: ${ex.shortReason()}")
+        }
+
+        try {
             logger.info("Daily digest send started.")
             accumulator.recordDigestResult(dailyDigestService.sendDailyDigests())
         } catch (ex: RuntimeException) {
