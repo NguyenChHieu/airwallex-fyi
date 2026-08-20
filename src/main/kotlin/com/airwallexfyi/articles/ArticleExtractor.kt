@@ -16,9 +16,10 @@ class ArticleExtractor(
     private val httpClient: AirwallexHttpClient,
     private val richTextFlattener: RichTextFlattener,
     private val contentHashService: ContentHashService,
+    // Defaulted (rather than required) so existing tests that don't care about JSON
+    // config don't all need updating; Spring always injects the app's real bean here.
+    private val objectMapper: ObjectMapper = ObjectMapper(),
 ) {
-    private val objectMapper = ObjectMapper()
-
     fun extract(entry: SitemapEntry): ExtractedArticle {
         val html = try {
             httpClient.fetchText(entry.url)
