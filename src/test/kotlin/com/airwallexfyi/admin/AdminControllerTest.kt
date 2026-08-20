@@ -28,10 +28,12 @@ import com.airwallexfyi.summaries.StructuredSummary
 import java.time.Instant
 import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.Awaitility.await
 import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.`when`
+import org.mockito.Mockito.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
@@ -143,60 +145,28 @@ class AdminControllerTest @Autowired constructor(
     }
 
     @Test
-    fun `run once endpoint returns operational counts and samples`() {
+    fun `run once endpoint accepts immediately and dispatches the run in the background`() {
         mockMvc.perform(authorized(post("/admin/run-once")))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.status").value("completed"))
-            .andExpect(jsonPath("$.message").value("Monitor run completed."))
-            .andExpect(jsonPath("$.sitemapFetched").value(true))
-            .andExpect(jsonPath("$.discoveredCount").value(12))
-            .andExpect(jsonPath("$.seededCount").value(1))
-            .andExpect(jsonPath("$.baselinedCount").value(5))
-            .andExpect(jsonPath("$.newCount").value(2))
-            .andExpect(jsonPath("$.updatedCount").value(3))
-            .andExpect(jsonPath("$.skippedCount").value(4))
-            .andExpect(jsonPath("$.failedCount").value(0))
-            .andExpect(jsonPath("$.summarizedCount").value(2))
-            .andExpect(jsonPath("$.summaryFailedCount").value(0))
-            .andExpect(jsonPath("$.approvalNeededCount").value(1))
-            .andExpect(jsonPath("$.digestSentCount").value(1))
-            .andExpect(jsonPath("$.digestNoChangeCount").value(1))
-            .andExpect(jsonPath("$.digestSkippedDuplicateCount").value(1))
-            .andExpect(jsonPath("$.digestFailedCount").value(0))
-            .andExpect(jsonPath("$.sampleUrls.seeded[0]").value("https://www.airwallex.com/global/blog/seeded"))
-            .andExpect(jsonPath("$.sampleUrls.new[0]").value("https://www.airwallex.com/global/blog/new"))
-            .andExpect(jsonPath("$.sampleUrls.updated[0]").value("https://www.airwallex.com/global/newsroom/updated"))
-            .andExpect(jsonPath("$.samplePayloads[0]").value("Airwallex FYI: Example payload"))
-            .andExpect(jsonPath("$.sampleDigestDeliveries[0]").value("whatsapp:+15550000002 DIGEST DRY_RUN"))
-            .andExpect(jsonPath("$.sampleDigestErrors", hasSize<Any>(0)))
-            .andExpect(jsonPath("$.sampleApprovalNeeded[0].reason").value("content_changed"))
-            .andExpect(jsonPath("$.sampleErrors", hasSize<Any>(0)))
-            .andExpect(jsonPath("$.externalCallsTriggered").value(true))
-            .andExpect(jsonPath("$.twilioCallsTriggered").value(false))
+            .andExpect(jsonPath("$.status").value("accepted"))
+            .andExpect(jsonPath("$.message").value("Monitor run started in the background."))
+
+        await().atMost(java.time.Duration.ofSeconds(2)).untilAsserted {
+            verify(monitorRunService).runOnce()
+        }
     }
 
     @Test
-    fun `run once endpoint returns sampled partial failure errors`() {
-        `when`(monitorRunService.runOnce()).thenReturn(
-            completedRunResult().copy(
-                status = MonitorRunStatus.PARTIAL_FAILURE,
-                message = "Monitor run completed with article-level failures.",
-                failedCount = 1,
-                sampleErrors = listOf(
-                    MonitorRunError(
-                        url = "https://www.airwallex.com/global/blog/broken",
-                        reason = "missing meaningful body",
-                    ),
-                ),
-            ),
-        )
+    fun `run once endpoint still accepts even if the background run later fails`() {
+        `when`(monitorRunService.runOnce()).thenThrow(IllegalStateException("boom"))
 
         mockMvc.perform(authorized(post("/admin/run-once")))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.status").value("partial_failure"))
-            .andExpect(jsonPath("$.failedCount").value(1))
-            .andExpect(jsonPath("$.sampleErrors[0].url").value("https://www.airwallex.com/global/blog/broken"))
-            .andExpect(jsonPath("$.sampleErrors[0].reason").value("missing meaningful body"))
+            .andExpect(jsonPath("$.status").value("accepted"))
+
+        await().atMost(java.time.Duration.ofSeconds(2)).untilAsserted {
+            verify(monitorRunService).runOnce()
+        }
     }
 
     @Test
