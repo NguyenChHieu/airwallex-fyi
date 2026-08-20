@@ -428,7 +428,6 @@ class AdminControllerTest @Autowired constructor(
         status = status,
         recipient = recipient,
         channel = channel,
-        payloadPreview = "Airwallex FYI - Daily Brief",
         attemptedAt = attemptedAt,
         sentAt = sentAt,
         createdAt = attemptedAt,

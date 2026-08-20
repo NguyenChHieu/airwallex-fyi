@@ -174,7 +174,6 @@ class DailyDigestServiceTest @Autowired constructor(
                 status = DigestDeliveryStatus.PENDING,
                 recipient = channel.recipient,
                 channel = channel.channel,
-                payloadPreview = DailyDigestFormatter.NO_CHANGES_TEXT,
                 attemptedAt = now,
                 createdAt = now,
                 updatedAt = now,

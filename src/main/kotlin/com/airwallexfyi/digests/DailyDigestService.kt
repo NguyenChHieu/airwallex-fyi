@@ -90,7 +90,7 @@ class DailyDigestService(
         }
 
         val delivery = try {
-            reserveDelivery(subscriberChannel, localDate, messageType, payload, now)
+            reserveDelivery(subscriberChannel, localDate, messageType, now)
         } catch (_: DataIntegrityViolationException) {
             counters.skippedDuplicateCount += 1
             counters.addDeliverySample("${subscriberChannel.recipient} $messageType ${DigestDeliveryStatus.SKIPPED_DUPLICATE}")
@@ -152,7 +152,6 @@ class DailyDigestService(
         subscriberChannel: SubscriberChannelRecord,
         localDate: LocalDate,
         messageType: String,
-        payload: WhatsAppAlertPayload,
         now: Instant,
     ): DigestDeliveryRecord =
         digestDeliveryRepository.save(
@@ -163,7 +162,6 @@ class DailyDigestService(
                 status = DigestDeliveryStatus.PENDING,
                 recipient = subscriberChannel.recipient,
                 channel = subscriberChannel.channel,
-                payloadPreview = payload.preview,
                 attemptedAt = now,
                 createdAt = now,
                 updatedAt = now,

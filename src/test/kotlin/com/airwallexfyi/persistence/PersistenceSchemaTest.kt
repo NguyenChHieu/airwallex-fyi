@@ -1,6 +1,5 @@
 package com.airwallexfyi.persistence
 
-import com.airwallexfyi.digests.DailyDigestFormatter
 import com.airwallexfyi.posts.PostRecord
 import com.airwallexfyi.posts.PostRepository
 import com.airwallexfyi.posts.ProcessingStatus
@@ -178,7 +177,6 @@ class PersistenceSchemaTest @Autowired constructor(
                 "status",
                 "recipient",
                 "channel",
-                "payload_preview",
                 "provider_message_id",
                 "error_message",
                 "attempted_at",
@@ -187,6 +185,7 @@ class PersistenceSchemaTest @Autowired constructor(
                 "updated_at",
             ),
         )
+        assertThat(columnsFor("digest_deliveries")).doesNotContain("payload_preview")
         assertThat(columnsFor("digest_delivery_posts")).containsAll(
             listOf("id", "digest_delivery_id", "post_id", "summary_id", "display_order", "created_at"),
         )
@@ -354,9 +353,9 @@ class PersistenceSchemaTest @Autowired constructor(
             """
             INSERT INTO digest_deliveries (
                 id, subscriber_channel_id, local_date, message_type, status, recipient, channel,
-                payload_preview, provider_message_id, error_message, attempted_at, sent_at, created_at, updated_at
+                provider_message_id, error_message, attempted_at, sent_at, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             deliveryId,
             channelId,
@@ -365,7 +364,6 @@ class PersistenceSchemaTest @Autowired constructor(
             "DRY_RUN",
             "whatsapp:+17770000000",
             "whatsapp",
-            DailyDigestFormatter.NO_CHANGES_TEXT,
             null,
             null,
             attemptedAt,

@@ -32,7 +32,6 @@ data class DigestDeliveryRecord(
     @Column("status") val status: String,
     @Column("recipient") val recipient: String,
     @Column("channel") val channel: String,
-    @Column("payload_preview") val payloadPreview: String? = null,
     @Column("provider_message_id") val providerMessageId: String? = null,
     @Column("error_message") val errorMessage: String? = null,
     @Column("attempted_at") val attemptedAt: Instant = Instant.now(),
