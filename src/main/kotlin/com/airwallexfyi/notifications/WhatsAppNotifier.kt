@@ -10,6 +10,7 @@ data class NotificationResult(
     val providerMessageId: String? = null,
     val errorMessage: String? = null,
     val twilioCalled: Boolean,
+    val telegramCalled: Boolean = false,
 )
 
 enum class NotificationStatus {

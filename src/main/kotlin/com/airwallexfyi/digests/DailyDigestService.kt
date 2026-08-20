@@ -134,6 +134,7 @@ class DailyDigestService(
         }
 
         counters.twilioCallsTriggered = counters.twilioCallsTriggered || notificationResult.twilioCalled
+        counters.telegramCallsTriggered = counters.telegramCallsTriggered || notificationResult.telegramCalled
         counters.addPayloadSample(notificationResult.payloadPreview)
         counters.addDeliverySample("${subscriberChannel.recipient} $messageType $deliveryStatus")
         when {
@@ -195,6 +196,7 @@ class DailyDigestService(
         var skippedAccessCount: Int = 0
         var failedCount: Int = 0
         var twilioCallsTriggered: Boolean = false
+        var telegramCallsTriggered: Boolean = false
         private val deliverySamples = mutableListOf<String>()
         private val errorSamples = mutableListOf<String>()
         private val payloadSamples = mutableListOf<String>()
@@ -215,6 +217,7 @@ class DailyDigestService(
             sampleErrors = errorSamples.toList(),
             samplePayloads = payloadSamples.toList(),
             twilioCallsTriggered = twilioCallsTriggered,
+            telegramCallsTriggered = telegramCallsTriggered,
         )
     }
 
@@ -243,4 +246,5 @@ data class DailyDigestRunResult(
     val sampleErrors: List<String> = emptyList(),
     val samplePayloads: List<String> = emptyList(),
     val twilioCallsTriggered: Boolean = false,
+    val telegramCallsTriggered: Boolean = false,
 )

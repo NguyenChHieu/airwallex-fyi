@@ -182,6 +182,7 @@ private class MonitorRunAccumulator(
     private var digestSkippedAccessCount = 0
     private var digestFailedCount = 0
     private var twilioCallsTriggered = false
+    private var telegramCallsTriggered = false
     private val seededUrls = mutableListOf<String>()
     private val baselinedUrls = mutableListOf<String>()
     private val newUrls = mutableListOf<String>()
@@ -234,6 +235,7 @@ private class MonitorRunAccumulator(
         digestSkippedAccessCount += result.skippedAccessCount
         digestFailedCount += result.failedCount
         twilioCallsTriggered = twilioCallsTriggered || result.twilioCallsTriggered
+        telegramCallsTriggered = telegramCallsTriggered || result.telegramCallsTriggered
         result.samplePayloads.forEach { addPayload(it) }
         result.sampleDeliveries.forEach { digestDeliveries.addSample(it) }
         result.sampleErrors.forEach { digestErrors.addSample(it) }
@@ -241,6 +243,8 @@ private class MonitorRunAccumulator(
 
     fun recordTelegramSubscriptionResult(result: TelegramSubscriptionSyncResult) {
         if (result.skipped) return
+        // A non-skipped sync always makes at least one real Telegram getUpdates call.
+        telegramCallsTriggered = true
         if (result.processedCount > 0 || result.subscribedCount > 0 || result.unsubscribedCount > 0) {
             digestDeliveries.addSample(
                 "telegram subscriptions processed=${result.processedCount} subscribed=${result.subscribedCount} unsubscribed=${result.unsubscribedCount}",
@@ -311,7 +315,7 @@ private class MonitorRunAccumulator(
             sampleApprovalNeeded = approvalNeeded,
             sampleDigestDeliveries = digestDeliveries,
             sampleDigestErrors = digestErrors,
-            externalCallsTriggered = summarizedCount > 0 || twilioCallsTriggered,
+            externalCallsTriggered = summarizedCount > 0 || twilioCallsTriggered || telegramCallsTriggered,
             twilioCallsTriggered = twilioCallsTriggered,
             message = message,
         )

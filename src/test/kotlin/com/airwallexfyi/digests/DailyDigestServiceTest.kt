@@ -77,6 +77,7 @@ class DailyDigestServiceTest @Autowired constructor(
         }
         assertThat(linkedPostIds(firstChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
         assertThat(linkedPostIds(secondChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
+        assertThat(result.telegramCallsTriggered).isFalse()
     }
 
     @Test
@@ -99,6 +100,7 @@ class DailyDigestServiceTest @Autowired constructor(
         assertThat(telegramNotifier.payloads.single().body).contains("Read: ${summarized.post.url}")
         assertThat(delivery.channel).isEqualTo(SubscriberChannelType.TELEGRAM)
         assertThat(delivery.status).isEqualTo(DigestDeliveryStatus.DRY_RUN)
+        assertThat(result.telegramCallsTriggered).isTrue()
     }
 
     @Test
@@ -404,6 +406,7 @@ class DailyDigestServiceTest @Autowired constructor(
                 status = NotificationStatus.DRY_RUN,
                 payloadPreview = payload.preview,
                 twilioCalled = false,
+                telegramCalled = true,
             )
         }
     }
