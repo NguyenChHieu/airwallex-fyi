@@ -204,8 +204,6 @@ class SpotlightService(
             ProcessingStatus.SEEDED.name,
             ProcessingStatus.BASELINED.name,
             ProcessingStatus.SUMMARY_READY.name,
-            ProcessingStatus.ALERT_SENT.name,
-            ProcessingStatus.DRY_RUN_READY.name,
         )
     }
 }

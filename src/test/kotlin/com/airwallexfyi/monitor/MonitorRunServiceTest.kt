@@ -584,7 +584,7 @@ class MonitorRunServiceTest @Autowired constructor(
             discoveredAt = sitemapLastmod,
             contentHash = contentHash,
             articleBody = "Known article body that is long enough for a stored post.",
-            processingStatus = ProcessingStatus.ALERT_SENT.name,
+            processingStatus = ProcessingStatus.SUMMARY_READY.name,
         ),
     )
 
