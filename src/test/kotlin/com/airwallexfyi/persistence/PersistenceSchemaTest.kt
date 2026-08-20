@@ -68,7 +68,7 @@ class PersistenceSchemaTest @Autowired constructor(
     }
 
     @Test
-    fun `summary and notification tables expose phase three columns`() {
+    fun `summary table expose phase three columns`() {
         assertThat(columnsFor("summaries")).containsAll(
             listOf(
                 "id",
@@ -83,23 +83,12 @@ class PersistenceSchemaTest @Autowired constructor(
                 "updated_at",
             ),
         )
-        assertThat(columnsFor("notification_attempts")).containsAll(
-            listOf(
-                "id",
-                "post_id",
-                "channel",
-                "recipient",
-                "status",
-                "provider_message_id",
-                "error_message",
-                "attempted_at",
-                "sent_at",
-                "created_at",
-                "updated_at",
-            ),
-        )
         assertThat(uniqueConstraintsFor("summaries")).contains("uq_summaries_post_id")
-        assertThat(uniqueConstraintsFor("notification_attempts")).contains("uq_notification_attempts_post_channel_recipient")
+    }
+
+    @Test
+    fun `notification_attempts table was dropped as dead code`() {
+        assertThat(columnsFor("notification_attempts")).isEmpty()
     }
 
     @Test
