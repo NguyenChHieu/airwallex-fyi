@@ -52,6 +52,11 @@ data class AppProperties(
 
     data class Digest(
         val timeZone: String = "Australia/Sydney",
+        // The shared per-bot-token rate limit (see Telegram.sendsPerSecond) is the
+        // real ceiling on fanout throughput, not connection count - a handful of
+        // workers is enough to saturate it. Going wider just adds contention.
+        @field:Min(1)
+        val sendConcurrency: Int = 4,
     )
 
     data class Scheduler(

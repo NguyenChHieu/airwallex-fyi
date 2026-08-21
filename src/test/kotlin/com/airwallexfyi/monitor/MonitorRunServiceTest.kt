@@ -686,6 +686,9 @@ class MonitorRunServiceTest @Autowired constructor(
         var calls = 0
         val payloads = mutableListOf<WhatsAppAlertPayload>()
 
+        // Sends now run on a bounded pool - synchronized so `calls` and `payloads`
+        // stay consistent when multiple channels are sent concurrently.
+        @Synchronized
         override fun send(payload: WhatsAppAlertPayload): NotificationResult {
             calls += 1
             payloads += payload
