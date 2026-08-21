@@ -21,6 +21,7 @@ import com.airwallexfyi.summaries.SummaryRecord
 import com.airwallexfyi.summaries.SummaryRepository
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.CopyOnWriteArrayList
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -73,7 +74,9 @@ class DailyDigestServiceTest @Autowired constructor(
 
         assertThat(result.digestSentCount).isEqualTo(2)
         assertThat(result.noChangeCount).isZero()
-        assertThat(notifier.payloads.map { it.recipient }).containsExactly(firstChannel.recipient, secondChannel.recipient)
+        // Sends now run on a bounded pool, so completion order across channels isn't
+        // guaranteed - only that both were sent.
+        assertThat(notifier.payloads.map { it.recipient }).containsExactlyInAnyOrder(firstChannel.recipient, secondChannel.recipient)
         assertThat(notifier.payloads).allSatisfy { payload ->
             assertThat(payload.body).contains("Airwallex FYI - Daily Brief")
             assertThat(payload.body).contains("2026-06-22")
@@ -98,6 +101,29 @@ class DailyDigestServiceTest @Autowired constructor(
 
         assertThat(result.digestSentCount).isEqualTo(3)
         verify(spiedEligibilityService, times(1)).findEligibleSummariesSince(any())
+    }
+
+    @Test
+    fun `all subscribers are sent correctly when running concurrently`() {
+        val channels = (1..6).map { i -> createChannel("whatsapp:+15550001${1000 + i}") }
+        val summarized = createSummarizedPost("https://www.airwallex.com/global/blog/concurrent-${System.nanoTime()}")
+        // A small artificial delay makes genuine overlap across workers likely rather
+        // than incidental, without asserting on timing (which would be flaky).
+        val notifier = FakeWhatsAppNotifier(sendDelayMillis = 20)
+        val service = service(notifier, properties = AppProperties(digest = AppProperties.Digest(sendConcurrency = 3)))
+
+        val result = service.sendDailyDigests(Instant.parse("2026-06-22T01:00:00Z"))
+
+        assertThat(result.digestSentCount).isEqualTo(6)
+        assertThat(result.failedCount).isZero()
+        assertThat(notifier.payloads.map { it.recipient })
+            .containsExactlyInAnyOrderElementsOf(channels.map { it.recipient })
+        assertThat(notifier.payloads).allSatisfy { payload ->
+            assertThat(payload.body).contains("Read: ${summarized.post.url}")
+        }
+        channels.forEach { channel ->
+            assertThat(linkedPostIds(channel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
+        }
     }
 
     @Test
@@ -388,10 +414,13 @@ class DailyDigestServiceTest @Autowired constructor(
     private class FakeWhatsAppNotifier(
         private val failingRecipients: Set<String> = emptySet(),
         private val skippedRecipients: Set<String> = emptySet(),
+        private val sendDelayMillis: Long = 0,
     ) : WhatsAppNotifier {
-        val payloads: MutableList<WhatsAppAlertPayload> = mutableListOf()
+        // Written from worker threads now that sends run on a bounded pool.
+        val payloads: MutableList<WhatsAppAlertPayload> = CopyOnWriteArrayList()
 
         override fun send(payload: WhatsAppAlertPayload): NotificationResult {
+            if (sendDelayMillis > 0) Thread.sleep(sendDelayMillis)
             payloads += payload
             if (payload.recipient in failingRecipients) {
                 return NotificationResult(
@@ -418,7 +447,8 @@ class DailyDigestServiceTest @Autowired constructor(
     }
 
     private class FakeTelegramNotifier : TelegramNotifier {
-        val payloads: MutableList<WhatsAppAlertPayload> = mutableListOf()
+        // Written from worker threads now that sends run on a bounded pool.
+        val payloads: MutableList<WhatsAppAlertPayload> = CopyOnWriteArrayList()
 
         override fun send(payload: WhatsAppAlertPayload): NotificationResult {
             payloads += payload

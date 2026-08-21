@@ -1,6 +1,7 @@
 package com.airwallexfyi.config
 
 import jakarta.validation.Valid
+import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Min
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.validation.annotation.Validated
@@ -43,10 +44,19 @@ data class AppProperties(
         val chatId: String = "",
         val webhookSecret: String = "",
         val allowedChatIds: String = "",
+        // Telegram documents ~30 msg/sec for bulk broadcast; default sits under that
+        // with headroom (core.telegram.org/bots/faq#my-bot-is-hitting-limits).
+        @field:DecimalMin("1.0")
+        val sendsPerSecond: Double = 25.0,
     )
 
     data class Digest(
         val timeZone: String = "Australia/Sydney",
+        // The shared per-bot-token rate limit (see Telegram.sendsPerSecond) is the
+        // real ceiling on fanout throughput, not connection count - a handful of
+        // workers is enough to saturate it. Going wider just adds contention.
+        @field:Min(1)
+        val sendConcurrency: Int = 4,
     )
 
     data class Scheduler(

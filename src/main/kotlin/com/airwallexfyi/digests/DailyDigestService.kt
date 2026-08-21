@@ -15,6 +15,9 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 
@@ -47,10 +50,48 @@ class DailyDigestService(
         if (plans.isNotEmpty()) {
             val floor = plans.minOf { it.since }
             val eligiblePosts = digestEligibilityService.findEligibleSummariesSince(floor)
-            plans.forEach { plan -> sendForChannel(plan, eligiblePosts, localDate, now, counters) }
+            sendAll(plans, eligiblePosts, localDate, now, counters)
         }
 
         return counters.toResult()
+    }
+
+    // Sends run on a small bounded pool - see RestClientTelegramTransport's rate
+    // limiter for why: Telegram's own per-bot-token throughput ceiling is the actual
+    // bottleneck, not connection count, so a handful of workers is enough to saturate
+    // it and more would just add contention without going faster. Each worker only
+    // returns an outcome; nothing shared (counters, sample lists) is touched from a
+    // worker thread - folding happens back on this thread, in plan order, so results
+    // stay deterministic regardless of which send finishes first.
+    private fun sendAll(
+        plans: List<ChannelSendPlan>,
+        eligiblePosts: List<DigestEligibleSummary>,
+        localDate: LocalDate,
+        now: Instant,
+        counters: DailyDigestCounters,
+    ) {
+        val executor = Executors.newFixedThreadPool(properties.digest.sendConcurrency.coerceAtLeast(1))
+        val futures = try {
+            executor.invokeAll(plans.map { plan -> Callable { sendForChannel(plan, eligiblePosts, localDate, now) } })
+        } catch (ex: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Digest fanout interrupted", ex)
+        } finally {
+            executor.shutdown()
+        }
+
+        futures.forEach { future ->
+            val outcome = try {
+                future.get()
+            } catch (ex: ExecutionException) {
+                // Unwrap so this still crashes with whatever RuntimeException
+                // sendForChannel actually threw, same as the old sequential loop -
+                // not a checked ExecutionException a caller's `catch (RuntimeException)`
+                // wouldn't match.
+                throw ex.cause ?: ex
+            }
+            counters.record(outcome)
+        }
     }
 
     private fun prepareChannel(
@@ -92,13 +133,15 @@ class DailyDigestService(
         return ChannelSendPlan(subscriberChannel, since)
     }
 
+    // Runs on a worker thread when called from sendAll's executor - must not touch
+    // counters or any other shared mutable state directly. Everything it needs to
+    // report back travels in the returned ChannelSendOutcome.
     private fun sendForChannel(
         plan: ChannelSendPlan,
         allEligiblePosts: List<DigestEligibleSummary>,
         localDate: LocalDate,
         now: Instant,
-        counters: DailyDigestCounters,
-    ) {
+    ): ChannelSendOutcome {
         val subscriberChannel = plan.subscriberChannel
         // allEligiblePosts is already sorted; filtering preserves that order, so no
         // re-sort is needed for this channel's own (later-or-equal) watermark.
@@ -113,9 +156,7 @@ class DailyDigestService(
         val delivery = try {
             reserveDelivery(subscriberChannel, localDate, messageType, now)
         } catch (_: DataIntegrityViolationException) {
-            counters.skippedDuplicateCount += 1
-            counters.addDeliverySample("${subscriberChannel.recipient} $messageType ${DigestDeliveryStatus.SKIPPED_DUPLICATE}")
-            return
+            return ChannelSendOutcome.DuplicateRace(subscriberChannel.recipient, messageType)
         }
 
         val notificationResult = try {
@@ -154,19 +195,11 @@ class DailyDigestService(
             }
         }
 
-        counters.twilioCallsTriggered = counters.twilioCallsTriggered || notificationResult.twilioCalled
-        counters.telegramCallsTriggered = counters.telegramCallsTriggered || notificationResult.telegramCalled
-        counters.addPayloadSample(notificationResult.payloadPreview)
-        counters.addDeliverySample("${subscriberChannel.recipient} $messageType $deliveryStatus")
-        when {
-            notificationResult.status == NotificationStatus.FAILED -> {
-                counters.failedCount += 1
-                counters.addErrorSample("${subscriberChannel.recipient}: ${notificationResult.errorMessage ?: "delivery failed"}")
-            }
-            notificationResult.status == NotificationStatus.SKIPPED -> Unit
-            messageType == DigestMessageType.NO_CHANGES -> counters.noChangeCount += 1
-            else -> counters.digestSentCount += 1
-        }
+        return ChannelSendOutcome.Sent(
+            recipient = subscriberChannel.recipient,
+            messageType = messageType,
+            notificationResult = notificationResult,
+        )
     }
 
     private fun reserveDelivery(
@@ -213,6 +246,19 @@ class DailyDigestService(
         val since: Instant,
     )
 
+    private sealed interface ChannelSendOutcome {
+        data class Sent(
+            val recipient: String,
+            val messageType: String,
+            val notificationResult: NotificationResult,
+        ) : ChannelSendOutcome
+
+        data class DuplicateRace(
+            val recipient: String,
+            val messageType: String,
+        ) : ChannelSendOutcome
+    }
+
     private class DailyDigestCounters {
         var digestSentCount: Int = 0
         var noChangeCount: Int = 0
@@ -224,6 +270,33 @@ class DailyDigestService(
         private val deliverySamples = mutableListOf<String>()
         private val errorSamples = mutableListOf<String>()
         private val payloadSamples = mutableListOf<String>()
+
+        // Only ever called from the run's own thread, after every worker in the
+        // batch has already finished (see sendAll) - never touched concurrently.
+        fun record(outcome: ChannelSendOutcome) {
+            when (outcome) {
+                is ChannelSendOutcome.DuplicateRace -> {
+                    skippedDuplicateCount += 1
+                    addDeliverySample("${outcome.recipient} ${outcome.messageType} ${DigestDeliveryStatus.SKIPPED_DUPLICATE}")
+                }
+                is ChannelSendOutcome.Sent -> {
+                    val result = outcome.notificationResult
+                    twilioCallsTriggered = twilioCallsTriggered || result.twilioCalled
+                    telegramCallsTriggered = telegramCallsTriggered || result.telegramCalled
+                    addPayloadSample(result.payloadPreview)
+                    addDeliverySample("${outcome.recipient} ${outcome.messageType} ${result.status.name}")
+                    when {
+                        result.status == NotificationStatus.FAILED -> {
+                            failedCount += 1
+                            addErrorSample("${outcome.recipient}: ${result.errorMessage ?: "delivery failed"}")
+                        }
+                        result.status == NotificationStatus.SKIPPED -> Unit
+                        outcome.messageType == DigestMessageType.NO_CHANGES -> noChangeCount += 1
+                        else -> digestSentCount += 1
+                    }
+                }
+            }
+        }
 
         fun addDeliverySample(value: String) = deliverySamples.addBounded(value)
 

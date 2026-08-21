@@ -30,8 +30,10 @@ airwallex-fyi:
     chat-id: ${TELEGRAM_CHAT_ID:}
     webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
     allowed-chat-ids: ${TELEGRAM_ALLOWED_CHAT_IDS:}
+    sends-per-second: ${TELEGRAM_SENDS_PER_SECOND:25}
   digest:
     time-zone: ${DIGEST_TIME_ZONE:Australia/Sydney}
+    send-concurrency: ${DIGEST_SEND_CONCURRENCY:4}
   scheduler:
     enabled: ${SCHEDULER_ENABLED:false}
     fixed-delay-ms: ${SCHEDULER_FIXED_DELAY:300000}
