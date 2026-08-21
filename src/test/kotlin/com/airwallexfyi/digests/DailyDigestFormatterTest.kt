@@ -13,7 +13,7 @@ import tools.jackson.databind.ObjectMapper
 
 class DailyDigestFormatterTest {
     private val objectMapper = ObjectMapper()
-    private val formatter = DailyDigestFormatter(objectMapper)
+    private val formatter = DailyDigestFormatter()
 
     @Test
     fun `formats one combined digest for multiple posts`() {
@@ -178,6 +178,7 @@ class DailyDigestFormatterTest {
                 promptVersion = "test-prompt",
                 objectMapper = objectMapper,
             ),
+            structured = summary,
         )
     }
 }

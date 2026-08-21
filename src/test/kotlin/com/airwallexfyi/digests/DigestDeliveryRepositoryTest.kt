@@ -60,7 +60,6 @@ class DigestDeliveryRepositoryTest @Autowired constructor(
                 status = DigestDeliveryStatus.DRY_RUN,
                 recipient = channel.recipient,
                 channel = channel.channel,
-                payloadPreview = DailyDigestFormatter.NO_CHANGES_TEXT,
                 attemptedAt = Instant.parse("2026-06-22T00:00:00Z"),
                 sentAt = Instant.parse("2026-06-22T00:00:00Z"),
             ),
@@ -95,7 +94,6 @@ class DigestDeliveryRepositoryTest @Autowired constructor(
                 status = DigestDeliveryStatus.SENT,
                 recipient = channel.recipient,
                 channel = channel.channel,
-                payloadPreview = "Airwallex FYI digest",
                 providerMessageId = "SM123",
                 attemptedAt = Instant.parse("2026-06-22T03:00:00Z"),
                 sentAt = Instant.parse("2026-06-22T03:00:01Z"),
@@ -241,7 +239,6 @@ class DigestDeliveryRepositoryTest @Autowired constructor(
         status = status,
         recipient = channel.recipient,
         channel = channel.channel,
-        payloadPreview = DailyDigestFormatter.NO_CHANGES_TEXT,
         attemptedAt = attemptedAt,
         sentAt = sentAt,
         createdAt = attemptedAt,
@@ -269,7 +266,7 @@ class DigestDeliveryRepositoryTest @Autowired constructor(
                 postId = post.identifier(),
                 headline = "Headline for ${post.identifier()}",
                 summaryJson = """
-                {"headline":"Headline","bullets":["One useful point"],"why_it_matters":"It matters","tags":["payments"],"source_type":"BLOG"}
+                {"headline":"Headline","bullets":["First useful point","Second useful point","Third useful point"],"why_it_matters":"It matters","tags":["payments"],"source_type":"BLOG"}
                 """.trimIndent(),
                 whyItMatters = "It matters",
                 tagsJson = "[\"payments\"]",

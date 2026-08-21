@@ -24,6 +24,10 @@ import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.spy
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import tools.jackson.databind.ObjectMapper
@@ -78,6 +82,22 @@ class DailyDigestServiceTest @Autowired constructor(
         assertThat(linkedPostIds(firstChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
         assertThat(linkedPostIds(secondChannel, LocalDate.of(2026, 6, 22))).containsExactly(summarized.post.identifier())
         assertThat(result.telegramCallsTriggered).isFalse()
+    }
+
+    @Test
+    fun `fetches eligible summaries once per run, not once per subscriber`() {
+        createChannel("whatsapp:+15550003012")
+        createChannel("whatsapp:+15550003013")
+        createChannel("whatsapp:+15550003014")
+        createSummarizedPost("https://www.airwallex.com/global/blog/once-per-run-${System.nanoTime()}")
+        val notifier = FakeWhatsAppNotifier()
+        val spiedEligibilityService = spy(digestEligibilityService)
+        val service = service(notifier, eligibilityService = spiedEligibilityService)
+
+        val result = service.sendDailyDigests(Instant.parse("2026-06-22T01:00:00Z"))
+
+        assertThat(result.digestSentCount).isEqualTo(3)
+        verify(spiedEligibilityService, times(1)).findEligibleSummariesSince(any())
     }
 
     @Test
@@ -174,7 +194,6 @@ class DailyDigestServiceTest @Autowired constructor(
                 status = DigestDeliveryStatus.PENDING,
                 recipient = channel.recipient,
                 channel = channel.channel,
-                payloadPreview = DailyDigestFormatter.NO_CHANGES_TEXT,
                 attemptedAt = now,
                 createdAt = now,
                 updatedAt = now,
@@ -295,13 +314,14 @@ class DailyDigestServiceTest @Autowired constructor(
         notifier: FakeWhatsAppNotifier,
         telegramNotifier: FakeTelegramNotifier = FakeTelegramNotifier(),
         properties: AppProperties = AppProperties(),
+        eligibilityService: DigestEligibilityService = digestEligibilityService,
     ): DailyDigestService = DailyDigestService(
         properties = properties,
         subscriberChannelRepository = subscriberChannelRepository,
         digestDeliveryRepository = digestDeliveryRepository,
         digestDeliveryPostRepository = digestDeliveryPostRepository,
-        digestEligibilityService = digestEligibilityService,
-        dailyDigestFormatter = DailyDigestFormatter(objectMapper),
+        digestEligibilityService = eligibilityService,
+        dailyDigestFormatter = DailyDigestFormatter(),
         whatsAppNotifier = notifier,
         telegramNotifier = telegramNotifier,
     )

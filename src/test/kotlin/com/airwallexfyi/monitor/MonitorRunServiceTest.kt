@@ -508,7 +508,7 @@ class MonitorRunServiceTest @Autowired constructor(
         sourceDiscoveryService: AirwallexSourceDiscoveryService = AirwallexSourceDiscoveryService(properties, StaticHttpClient(sitemapXml)),
         telegramSubscriptionService: TelegramSubscriptionService? = null,
     ): MonitorRunService {
-        val eligibilityService = DigestEligibilityService(summaryRepository, postRepository)
+        val eligibilityService = DigestEligibilityService(summaryRepository, postRepository, objectMapper)
         val extractor = articleExtractor(articleBodies)
         val summaryService = summaryService(aiClient, properties)
         return MonitorRunService(
@@ -547,7 +547,7 @@ class MonitorRunServiceTest @Autowired constructor(
                 digestDeliveryRepository = digestDeliveryRepository,
                 digestDeliveryPostRepository = digestDeliveryPostRepository,
                 digestEligibilityService = eligibilityService,
-                dailyDigestFormatter = DailyDigestFormatter(objectMapper),
+                dailyDigestFormatter = DailyDigestFormatter(),
                 whatsAppNotifier = notifier,
                 telegramNotifier = telegramNotifier,
             ),

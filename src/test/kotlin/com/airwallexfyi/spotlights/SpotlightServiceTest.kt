@@ -96,7 +96,7 @@ class SpotlightServiceTest @Autowired constructor(
         assertThat(summaryRepository.findByPostId(post.identifier())).isNotNull
         assertThat(postRepository.findById(post.identifier()).orElseThrow().processingStatus)
             .isEqualTo(ProcessingStatus.BASELINED.name)
-        assertThat(DigestEligibilityService(summaryRepository, postRepository).findEligibleSummariesSince(null)).isEmpty()
+        assertThat(DigestEligibilityService(summaryRepository, postRepository, objectMapper).findEligibleSummariesSince(null)).isEmpty()
     }
 
     @Test
