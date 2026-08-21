@@ -2,10 +2,13 @@ package com.airwallexfyi.notifications
 
 import com.airwallexfyi.config.AppProperties
 import com.airwallexfyi.http.RestClientTimeouts
+import com.airwallexfyi.util.RateLimiter
+import java.time.Duration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import tools.jackson.databind.JsonNode
@@ -115,17 +118,24 @@ fun JsonNode.toTelegramUpdateOrNull(): TelegramUpdate? {
 @Component
 class RestClientTelegramTransport(
     private val objectMapper: ObjectMapper,
+    properties: AppProperties,
+    baseUrl: String = "https://api.telegram.org",
+    private val sleeper: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
 ) : TelegramTransport {
     private val restClient = RestClient.builder()
-        .baseUrl("https://api.telegram.org")
+        .baseUrl(baseUrl)
         .requestFactory(RestClientTimeouts.requestFactory())
         .build()
+    // Shared across every call this transport makes (sends, confirmations, spotlight
+    // replies, getUpdates polls) - it's Telegram's per-bot-token budget, not a
+    // per-endpoint one.
+    private val rateLimiter = RateLimiter(properties.telegram.sendsPerSecond)
 
     override fun sendMessage(botToken: String, chatId: String, body: String): TelegramSendResponse {
         require(botToken.isNotBlank()) { "Telegram bot token is not configured" }
         require(chatId.isNotBlank()) { "Telegram chat ID is not configured" }
 
-        val responseBody = try {
+        val responseBody = executeWithRetry("Telegram request failed") {
             restClient.post()
                 .uri("/bot{botToken}/sendMessage", botToken)
                 .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
@@ -139,8 +149,6 @@ class RestClientTelegramTransport(
                 .retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("Telegram returned an empty response body")
-        } catch (ex: RestClientException) {
-            throw IllegalStateException("Telegram request failed: ${ex.safeMessage()}", ex)
         }
 
         val root = objectMapper.readTree(responseBody)
@@ -159,7 +167,7 @@ class RestClientTelegramTransport(
     override fun getUpdates(botToken: String, offset: Long?): List<TelegramUpdate> {
         require(botToken.isNotBlank()) { "Telegram bot token is not configured" }
 
-        val responseBody = try {
+        val responseBody = executeWithRetry("Telegram getUpdates request failed") {
             restClient.get()
                 .uri { uriBuilder ->
                     val builder = uriBuilder.path("/bot{botToken}/getUpdates")
@@ -172,8 +180,6 @@ class RestClientTelegramTransport(
                 .retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("Telegram returned an empty response body")
-        } catch (ex: RestClientException) {
-            throw IllegalStateException("Telegram getUpdates request failed: ${ex.safeMessage()}", ex)
         }
 
         val root = objectMapper.readTree(responseBody)
@@ -186,8 +192,50 @@ class RestClientTelegramTransport(
             .mapNotNull { it.toTelegramUpdateOrNull() }
     }
 
+    // Rate-limits every call this transport makes, and retries once Telegram's own
+    // rate-limit response (429, with a retry_after hint) is hit - that response must
+    // be caught here, before the generic RestClientException handling below, or its
+    // retry_after would be lost inside a plain IllegalStateException.
+    private fun executeWithRetry(failureMessage: String, request: () -> String): String {
+        var attempt = 0
+        while (true) {
+            rateLimiter.acquire()
+            try {
+                return request()
+            } catch (ex: HttpClientErrorException.TooManyRequests) {
+                if (attempt == MAX_RETRY_ATTEMPTS - 1) {
+                    throw IllegalStateException("$failureMessage: rate limited (429) after $MAX_RETRY_ATTEMPTS attempts", ex)
+                }
+                val waitSeconds = retryAfterSecondsFrom(ex).coerceAtMost(MAX_RETRY_AFTER_SECONDS)
+                try {
+                    sleeper(Duration.ofSeconds(waitSeconds))
+                } catch (interrupted: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw IllegalStateException("$failureMessage: retry interrupted", interrupted)
+                }
+                attempt += 1
+            } catch (ex: RestClientException) {
+                throw IllegalStateException("$failureMessage: ${ex.safeMessage()}", ex)
+            }
+        }
+    }
+
+    private fun retryAfterSecondsFrom(ex: HttpClientErrorException): Long =
+        runCatching {
+            objectMapper.readTree(ex.responseBodyAsString)
+                .path("parameters")
+                .path("retry_after")
+                .asLong(DEFAULT_RETRY_AFTER_SECONDS)
+        }.getOrDefault(DEFAULT_RETRY_AFTER_SECONDS)
+
     private fun Throwable.safeMessage(): String =
         (message ?: javaClass.simpleName).lineSequence().firstOrNull()?.take(240) ?: javaClass.simpleName
+
+    private companion object {
+        const val MAX_RETRY_ATTEMPTS = 3
+        const val MAX_RETRY_AFTER_SECONDS = 60L
+        const val DEFAULT_RETRY_AFTER_SECONDS = 5L
+    }
 }
 
 private fun JsonNode.textOrNull(): String? =
