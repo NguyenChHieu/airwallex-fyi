@@ -3,11 +3,9 @@ name: Daily Airwallex FYI
 on:
   workflow_dispatch:
   schedule:
-    # GitHub cron uses UTC. These two slots cover 9am Australia/Sydney across AEST/AEDT.
-    # Scheduled jobs can start late, so the gate below allows either slot when it
-    # actually lands in Sydney's 9am hour or small 10am grace window.
-    - cron: "0 22 * * *"
-    - cron: "0 23 * * *"
+    # 12:17pm AEST / 1:17pm AEDT. Avoid the busy top of the hour.
+    # Always execute delayed jobs; the database prevents duplicate daily digests.
+    - cron: "17 2 * * *"
 
 permissions:
   contents: read
@@ -39,40 +37,10 @@ jobs:
       SCHEDULER_ENABLED: "false"
 
     steps:
-      - name: Gate scheduled run to 9am Sydney
-        id: schedule_gate
-        shell: bash
-        run: |
-          sydney_time="$(TZ=Australia/Sydney date '+%Y-%m-%d %H:%M:%S %Z')"
-          echo "sydney_time=$sydney_time" >> "$GITHUB_OUTPUT"
-
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          sydney_hour="$(TZ=Australia/Sydney date '+%H')"
-          in_grace_window=false
-          if [ "$sydney_hour" = "09" ] || [ "$sydney_hour" = "10" ]; then
-            in_grace_window=true
-          fi
-
-          if [ "$in_grace_window" = "true" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Skip outside 9am Sydney
-        if: steps.schedule_gate.outputs.should_run != 'true'
-        run: echo "Skipping daily digest; Sydney time is ${{ steps.schedule_gate.outputs.sydney_time }}."
-
       - name: Checkout
-        if: steps.schedule_gate.outputs.should_run == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Java
-        if: steps.schedule_gate.outputs.should_run == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -80,9 +48,7 @@ jobs:
           cache: gradle
 
       - name: Make Gradle wrapper executable
-        if: steps.schedule_gate.outputs.should_run == 'true'
         run: chmod +x ./gradlew
 
       - name: Run monitor once
-        if: steps.schedule_gate.outputs.should_run == 'true'
         run: ./gradlew --no-daemon bootRun --args="--run-once"
