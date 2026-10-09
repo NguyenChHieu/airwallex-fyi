@@ -1,7 +1,7 @@
 plugins {
-	kotlin("jvm") version "2.3.21"
-	kotlin("plugin.spring") version "2.3.21"
-	id("org.springframework.boot") version "4.1.0"
+	kotlin("jvm") version "2.4.10"
+	kotlin("plugin.spring") version "2.4.10"
+	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -27,7 +27,7 @@ dependencies {
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
-	implementation("org.jsoup:jsoup:1.22.2")
+	implementation("org.jsoup:jsoup:1.23.1")
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
